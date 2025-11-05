@@ -110,30 +110,19 @@
     .tab-content.active {
       display: flex;
     }
-    .input-format-selector {
-      display: flex; 
-      margin-bottom: 0;
-      border: 1px solid #ddd; 
-      border-radius: 4px; 
-      overflow: hidden;
+    .format-indicator {
+      padding: 8px 12px;
+      background: #f8f9fa;
+      border-radius: 4px;
+      font-size: 12px;
+      border-left: 3px solid #28a745;
       flex-shrink: 0;
     }
-    .format-option {
-      flex: 1; 
-      padding: 8px 6px;
-      text-align: center; 
-      cursor: pointer; 
-      background: #f8f9fa;
-      border-right: 1px solid #ddd; 
-      font-size: 12px;
-      transition: all 0.3s;
+    .format-indicator.wkt {
+      border-left-color: #3388FF;
     }
-    .format-option:last-child { 
-      border-right: none; 
-    }
-    .format-option.active { 
-      background: #3388FF; 
-      color: white; 
+    .format-indicator.coords {
+      border-left-color: #28a745;
     }
     .input-item {
       display: flex;
@@ -144,7 +133,7 @@
     .input-item textarea {
       width: 100%; 
       flex: 1;
-      min-height: 300px;
+      min-height: 320px;
       margin: 0; 
       padding: 12px;
       border: 1px solid #ddd; 
@@ -229,37 +218,25 @@
       
       <!-- 点数据标签页 -->
       <div class="tab-content active" id="points-tab">
-        <div class="input-format-selector" id="points-format-selector">
-          <div class="format-option active" data-format="coords">坐标串格式</div>
-          <div class="format-option" data-format="wkt">WKT格式</div>
-        </div>
+        <div class="format-indicator" id="points-format-indicator">检测到格式: <strong>坐标串</strong></div>
         <div class="input-item">
-          <textarea id="points-input">116.29642223,39.92031415;116.29628966,39.91976904;116.29609911,39.91929966;116.29603309,39.91915046;116.29583764,39.91876747;116.29581320,39.91873134;116.29570371,39.91856958;116.29545868,39.91814503;116.29514603,39.91752918;116.29501289,39.91723948;116.29494476,39.91699938;116.29489826,39.91671971;116.29488629,39.91630827;116.29488051,39.91574014;116.29490872,39.91308447;116.29490760,39.91291666;116.29487722,39.91027120;116.29487841,39.91016540;116.29487731,39.90937277;116.29487633,39.90788590;116.29488021,39.90774420;116.29487939,39.90754059;116.29487967,39.90741848;116.29488256,39.90724998;116.29487908,39.90665645;116.29488178,39.90584202;116.29491909,39.90387818;116.29492613,39.90247943;116.29488469,39.90024547;116.29491660,39.89835033;116.29491037,39.89741638;116.29491105,39.89724997</textarea>
-          <div class="format-example" id="points-format-example">格式示例: lng1,lat1;lng2,lat2;lng3,lat3;...</div>
+          <textarea id="points-input" placeholder="请输入点数据，支持坐标串格式或WKT格式&#10;坐标串示例: 116.123,39.456;116.124,39.457&#10;WKT示例: MULTIPOINT((116.123 39.456),(116.124 39.457))">116.29642223,39.92031415;116.29628966,39.91976904;116.29609911,39.91929966;116.29603309,39.91915046;116.29583764,39.91876747;116.29581320,39.91873134;116.29570371,39.91856958;116.29545868,39.91814503;116.29514603,39.91752918;116.29501289,39.91723948;116.29494476,39.91699938;116.29489826,39.91671971;116.29488629,39.91630827;116.29488051,39.91574014;116.29490872,39.91308447;116.29490760,39.91291666;116.29487722,39.91027120;116.29487841,39.91016540;116.29487731,39.90937277;116.29487633,39.90788590;116.29488021,39.90774420;116.29487939,39.90754059;116.29487967,39.90741848;116.29488256,39.90724998;116.29487908,39.90665645;116.29488178,39.90584202;116.29491909,39.90387818;116.29492613,39.90247943;116.29488469,39.90024547;116.29491660,39.89835033;116.29491037,39.89741638;116.29491105,39.89724997</textarea>
         </div>
       </div>
       
       <!-- 线数据标签页 -->
       <div class="tab-content" id="lines-tab">
-        <div class="input-format-selector" id="lines-format-selector">
-          <div class="format-option active" data-format="coords">坐标串格式</div>
-          <div class="format-option" data-format="wkt">WKT格式</div>
-        </div>
+        <div class="format-indicator" id="lines-format-indicator">检测到格式: <strong>坐标串</strong></div>
         <div class="input-item">
-          <textarea id="lines-input">116.29642223,39.92031415;116.29628966,39.91976904;116.29609911,39.91929966;116.29603309,39.91915046;116.29583764,39.91876747;116.29581320,39.91873134;116.29570371,39.91856958;116.29545868,39.91814503;116.29514603,39.91752918;116.29501289,39.91723948;116.29494476,39.91699938;116.29489826,39.91671971;116.29488629,39.91630827;116.29488051,39.91574014;116.29490872,39.91308447;116.29490760,39.91291666;116.29487722,39.91027120;116.29487841,39.91016540;116.29487731,39.90937277;116.29487633,39.90788590;116.29488021,39.90774420;116.29487939,39.90754059;116.29487967,39.90741848;116.29488256,39.90724998;116.29487908,39.90665645;116.29488178,39.90584202;116.29491909,39.90387818;116.29492613,39.90247943;116.29488469,39.90024547;116.29491660,39.89835033;116.29491037,39.89741638;116.29491105,39.89724997|116.29507250,39.89724579;116.29508494,39.89823985;116.29507074,39.90002902;116.29507217,39.90025133;116.29507137,39.90104876;116.29507844,39.90156980;116.29509458,39.90247856;116.29509586,39.90387622;116.29508062,39.90620530;116.29507453,39.90713944;116.29507555,39.90725024;116.29507707,39.90741995;116.29508029,39.90754506;116.29510976,39.90774271;116.29510120,39.90897805;116.29510065,39.90934997;116.29509377,39.90965097;116.29507910,39.91005047;116.29507901,39.91016697;116.29507243,39.91277858;116.29507225,39.91291388;116.29506200,39.91510776;116.29506546,39.91550458;116.29505853,39.91616060;116.29506567,39.91638752;116.29508593,39.91660366;116.29511439,39.91677590;116.29513905,39.91692934;116.29518844,39.91711542;116.29522873,39.91729078;116.29530647,39.91750979;116.29580013,39.91838101;116.29588207,39.91848642;116.29593105,39.91854619;116.29602943,39.91870614;116.29622888,39.91909563;116.29627557,39.91919310</textarea>
-          <div class="format-example" id="lines-format-example">格式示例: lng1,lat1;lng2,lat2;lng3,lat3;...|另一条线坐标...</div>
+          <textarea id="lines-input" placeholder="请输入线数据，支持坐标串格式或WKT格式&#10;坐标串示例: 116.123,39.456;116.124,39.457|116.125,39.458;116.126,39.459&#10;WKT示例: MULTILINESTRING((116.123 39.456,116.124 39.457),(116.125 39.458,116.126 39.459))">116.29642223,39.92031415;116.29628966,39.91976904;116.29609911,39.91929966;116.29603309,39.91915046;116.29583764,39.91876747;116.29581320,39.91873134;116.29570371,39.91856958;116.29545868,39.91814503;116.29514603,39.91752918;116.29501289,39.91723948;116.29494476,39.91699938;116.29489826,39.91671971;116.29488629,39.91630827;116.29488051,39.91574014;116.29490872,39.91308447;116.29490760,39.91291666;116.29487722,39.91027120;116.29487841,39.91016540;116.29487731,39.90937277;116.29487633,39.90788590;116.29488021,39.90774420;116.29487939,39.90754059;116.29487967,39.90741848;116.29488256,39.90724998;116.29487908,39.90665645;116.29488178,39.90584202;116.29491909,39.90387818;116.29492613,39.90247943;116.29488469,39.90024547;116.29491660,39.89835033;116.29491037,39.89741638;116.29491105,39.89724997|116.29507250,39.89724579;116.29508494,39.89823985;116.29507074,39.90002902;116.29507217,39.90025133;116.29507137,39.90104876;116.29507844,39.90156980;116.29509458,39.90247856;116.29509586,39.90387622;116.29508062,39.90620530;116.29507453,39.90713944;116.29507555,39.90725024;116.29507707,39.90741995;116.29508029,39.90754506;116.29510976,39.90774271;116.29510120,39.90897805;116.29510065,39.90934997;116.29509377,39.90965097;116.29507910,39.91005047;116.29507901,39.91016697;116.29507243,39.91277858;116.29507225,39.91291388;116.29506200,39.91510776;116.29506546,39.91550458;116.29505853,39.91616060;116.29506567,39.91638752;116.29508593,39.91660366;116.29511439,39.91677590;116.29513905,39.91692934;116.29518844,39.91711542;116.29522873,39.91729078;116.29530647,39.91750979;116.29580013,39.91838101;116.29588207,39.91848642;116.29593105,39.91854619;116.29602943,39.91870614;116.29622888,39.91909563;116.29627557,39.91919310</textarea>
         </div>
       </div>
       
       <!-- 多边形数据标签页 -->
       <div class="tab-content" id="polygons-tab">
-        <div class="input-format-selector" id="polygon-format-selector">
-          <div class="format-option active" data-format="coords">坐标串格式</div>
-          <div class="format-option" data-format="wkt">WKT格式</div>
-        </div>
+        <div class="format-indicator" id="polygon-format-indicator">检测到格式: <strong>WKT</strong></div>
         <div class="input-item">
-          <textarea id="polygon-input">118.144235,24.480171;118.144039,24.479604;118.141847,24.479660;118.139682,24.479684;118.138182,24.479732;118.134948,24.480479;118.133942,24.481531;118.132470,24.482517;118.129869,24.479710;118.127156,24.479724;118.125790,24.478212;118.124443,24.476089;118.127425,24.476141;118.130030,24.475846;118.134033,24.475496;118.135851,24.475811;118.140755,24.477096;118.143064,24.477110;118.144752,24.476815;118.146908,24.476553;118.148129,24.476487;118.149342,24.476463;118.150950,24.476357;118.151202,24.478166;118.152477,24.478166;118.152845,24.484403;118.153241,24.485521;118.153636,24.486639;118.150546,24.488182;118.145960,24.489379;118.144235,24.480171</textarea>
-          <div class="format-example" id="polygon-format-example">格式示例: lng1,lat1;lng2,lat2;lng3,lat3;...</div>
+          <textarea id="polygon-input" placeholder="请输入多边形数据，支持坐标串格式或WKT格式&#10;坐标串示例: 116.123,39.456;116.124,39.457;116.125,39.458;116.123,39.456&#10;WKT示例: POLYGON((116.123 39.456,116.124 39.457,116.125 39.458,116.123 39.456))">POLYGON((116.417694 39.915705, 116.426632 39.915584, 116.426236 39.924278, 116.417476 39.924379, 116.417694 39.915705))</textarea>
         </div>
       </div>
       
@@ -276,9 +253,72 @@
   <script src="https://webapi.amap.com/maps?v=2.0&key=1cf9fc45df860df45e87af1230f5da74"></script>
   <script>
     document.addEventListener('DOMContentLoaded', function() {
-      var map = new AMap.Map('container', { zoom: 14, center: [118.144, 24.480], viewMode: '3D' });
+      var map = new AMap.Map('container', { zoom: 14, center: [116.422, 39.920], viewMode: '3D' });
       var points = [], lines = [], polygons = [], currentTab = 'points';
-      var pointsFormat = 'coords', linesFormat = 'coords', polygonFormat = 'coords';
+      
+      // 自动检测格式的函数
+      function detectFormat(input, type) {
+        if (!input || input.trim() === '') return 'unknown';
+        
+        var text = input.trim().toUpperCase();
+        
+        // WKT格式检测
+        if (type === 'points') {
+          if (text.startsWith('MULTIPOINT') || text.startsWith('POINT')) return 'wkt';
+        } else if (type === 'lines') {
+          if (text.startsWith('MULTILINESTRING') || text.startsWith('LINESTRING')) return 'wkt';
+        } else if (type === 'polygons') {
+          if (text.startsWith('MULTIPOLYGON') || text.startsWith('POLYGON')) return 'wkt';
+        }
+        
+        // 坐标串格式检测
+        // 检查是否包含分号分隔符（坐标串格式的特征）
+        if (input.includes(';')) {
+          // 进一步验证坐标格式
+          var parts = input.split(';');
+          var validCoords = parts.some(part => {
+            var coords = part.split(',');
+            if (coords.length === 2) {
+              var lng = parseFloat(coords[0]), lat = parseFloat(coords[1]);
+              return !isNaN(lng) && !isNaN(lat);
+            }
+            return false;
+          });
+          if (validCoords) return 'coords';
+        }
+        
+        return 'unknown';
+      }
+      
+      // 更新格式指示器
+      function updateFormatIndicator(type) {
+        var inputElement, indicatorElement;
+        
+        if (type === 'points') {
+          inputElement = document.getElementById('points-input');
+          indicatorElement = document.getElementById('points-format-indicator');
+        } else if (type === 'lines') {
+          inputElement = document.getElementById('lines-input');
+          indicatorElement = document.getElementById('lines-format-indicator');
+        } else if (type === 'polygons') {
+          inputElement = document.getElementById('polygon-input');
+          indicatorElement = document.getElementById('polygon-format-indicator');
+        }
+        
+        if (inputElement && indicatorElement) {
+          var format = detectFormat(inputElement.value, type);
+          if (format === 'wkt') {
+            indicatorElement.innerHTML = '检测到格式: <strong>WKT</strong>';
+            indicatorElement.className = 'format-indicator wkt';
+          } else if (format === 'coords') {
+            indicatorElement.innerHTML = '检测到格式: <strong>坐标串</strong>';
+            indicatorElement.className = 'format-indicator coords';
+          } else {
+            indicatorElement.innerHTML = '格式: <strong>未知</strong>';
+            indicatorElement.className = 'format-indicator';
+          }
+        }
+      }
       
       // 标签切换
       document.querySelectorAll('.tab').forEach(tab => {
@@ -293,38 +333,18 @@
         });
       });
 
-      // 格式切换
-      function setupFormatSelector(selectorId, formatVar, exampleId) {
-        document.querySelectorAll(`#${selectorId} .format-option`).forEach(option => {
-          option.addEventListener('click', function() {
-            document.querySelectorAll(`#${selectorId} .format-option`).forEach(o => o.classList.remove('active'));
-            this.classList.add('active');
-            window[formatVar] = this.getAttribute('data-format');
-            updateFormatExample(exampleId, window[formatVar], selectorId.includes('points') ? 'points' : selectorId.includes('lines') ? 'lines' : 'polygons');
-          });
-        });
-      }
-
-      function updateFormatExample(exampleId, format, type) {
-        const example = document.getElementById(exampleId);
-        if (format === 'coords') {
-          if (type === 'points') {
-            example.textContent = '格式示例: lng1,lat1;lng2,lat2;lng3,lat3;...';
-          } else if (type === 'lines') {
-            example.textContent = '格式示例: lng1,lat1;lng2,lat2;lng3,lat3;...|另一条线坐标...';
-          } else {
-            example.textContent = '格式示例: lng1,lat1;lng2,lat2;lng3,lat3;...';
-          }
-        } else {
-          if (type === 'points') {
-            example.textContent = '格式示例: MULTIPOINT((lng1 lat1),(lng2 lat2),...)';
-          } else if (type === 'lines') {
-            example.textContent = '格式示例: MULTILINESTRING((lng1 lat1,lng2 lat2,...),(lng1 lat1,lng2 lat2,...))';
-          } else {
-            example.textContent = '格式示例: POLYGON((lng1 lat1,lng2 lat2,lng3 lat3,...))';
-          }
-        }
-      }
+      // 输入框内容变化时自动检测格式
+      document.getElementById('points-input').addEventListener('input', function() {
+        updateFormatIndicator('points');
+      });
+      
+      document.getElementById('lines-input').addEventListener('input', function() {
+        updateFormatIndicator('lines');
+      });
+      
+      document.getElementById('polygon-input').addEventListener('input', function() {
+        updateFormatIndicator('polygons');
+      });
 
       function updateCurrentTabIndicator() {
         const tabNames = { 'points': '点数据', 'lines': '线数据', 'polygons': '多边形数据' };
@@ -345,12 +365,14 @@
         showPolygons(); 
       }
 
-      // 显示点数据
+      // 显示点数据 - 使用自动检测的格式
       function showPoints() {
         points.forEach(point => map.remove(point)); points = [];
         var input = document.getElementById('points-input').value.trim();
+        var format = detectFormat(input, 'points');
+        
         try {
-          if (pointsFormat === 'coords') {
+          if (format === 'coords') {
             // 坐标串格式
             var pointStrings = input.split(';');
             pointStrings.forEach(pointStr => {
@@ -370,7 +392,7 @@
                 }
               }
             });
-          } else {
+          } else if (format === 'wkt') {
             // WKT格式
             if (input.toUpperCase().startsWith('MULTIPOINT')) {
               var content = input.substring(input.indexOf('(') + 1, input.lastIndexOf(')'));
@@ -416,16 +438,22 @@
                 }
               }
             }
+          } else {
+            alert('无法识别点数据格式，请检查输入格式');
           }
-        } catch (error) { alert('解析错误: ' + error.message); }
+        } catch (error) { 
+          alert('解析错误: ' + error.message); 
+        }
       }
 
-      // 显示线数据
+      // 显示线数据 - 使用自动检测的格式
       function showLines() {
         lines.forEach(line => map.remove(line)); lines = [];
         var input = document.getElementById('lines-input').value.trim();
+        var format = detectFormat(input, 'lines');
+        
         try {
-          if (linesFormat === 'coords') {
+          if (format === 'coords') {
             // 坐标串格式 - 使用 | 分隔不同的线
             var lineStrings = input.split('|');
             lineStrings.forEach(lineStr => {
@@ -443,7 +471,7 @@
                 map.add(line); lines.push(line);
               }
             });
-          } else {
+          } else if (format === 'wkt') {
             // WKT格式
             var content = input.substring(input.indexOf('(') + 1, input.lastIndexOf(')'));
             var lineStrings = content.split('),(').map(line => {
@@ -466,16 +494,22 @@
                 map.add(line); lines.push(line);
               }
             });
+          } else {
+            alert('无法识别线数据格式，请检查输入格式');
           }
-        } catch (error) { alert('解析错误: ' + error.message); }
+        } catch (error) { 
+          alert('解析错误: ' + error.message); 
+        }
       }
 
-      // 显示多边形数据
+      // 显示多边形数据 - 使用自动检测的格式
       function showPolygons() {
         polygons.forEach(polygon => map.remove(polygon)); polygons = [];
         var input = document.getElementById('polygon-input').value.trim();
+        var format = detectFormat(input, 'polygons');
+        
         try {
-          if (polygonFormat === 'coords') {
+          if (format === 'coords') {
             // 坐标串格式
             var points = input.split(';'), coords = [];
             points.forEach(point => {
@@ -491,10 +525,9 @@
                 fillColor: '#FF6B6B', fillOpacity: 0.3
               });
               map.add(polygon); polygons.push(polygon);
-              // 自动调整视图以显示多边形
               map.setFitView([polygon]);
             }
-          } else {
+          } else if (format === 'wkt') {
             // WKT格式
             if (input.toUpperCase().startsWith('POLYGON')) {
               var content = input.substring(input.indexOf('((') + 2, input.lastIndexOf('))'));
@@ -503,20 +536,34 @@
               rings.forEach(ringContent => {
                 var coords = [];
                 var points = ringContent.split(',');
+                
                 points.forEach(point => {
-                  var parts = point.trim().split(/\s+/);
+                  point = point.trim();
+                  var parts = point.split(/\s+/);
                   if (parts.length >= 2) {
                     var lng = parseFloat(parts[0]), lat = parseFloat(parts[1]);
-                    if (!isNaN(lng) && !isNaN(lat)) coords.push([lng, lat]);
+                    if (!isNaN(lng) && !isNaN(lat)) {
+                      coords.push([lng, lat]);
+                    }
                   }
                 });
                 
+                // 确保多边形闭合
+                if (coords.length > 0 && (coords[0][0] !== coords[coords.length-1][0] || coords[0][1] !== coords[coords.length-1][1])) {
+                  coords.push([coords[0][0], coords[0][1]]);
+                }
+                
                 if (coords.length >= 3) {
                   var polygon = new AMap.Polygon({
-                    path: coords, strokeColor: '#FF6B6B', strokeWeight: 2, strokeOpacity: 0.8,
-                    fillColor: '#FF6B6B', fillOpacity: 0.3
+                    path: coords, 
+                    strokeColor: '#FF6B6B', 
+                    strokeWeight: 2, 
+                    strokeOpacity: 0.8,
+                    fillColor: '#FF6B6B', 
+                    fillOpacity: 0.3
                   });
-                  map.add(polygon); polygons.push(polygon);
+                  map.add(polygon); 
+                  polygons.push(polygon);
                   map.setFitView([polygon]);
                 }
               });
@@ -549,8 +596,13 @@
                 });
               });
             }
+          } else {
+            alert('无法识别多边形数据格式，请检查输入格式');
           }
-        } catch (error) { alert('解析错误: ' + error.message); }
+        } catch (error) { 
+          console.error('解析错误:', error);
+          alert('解析错误: ' + error.message); 
+        }
       }
 
       function clearAll() {
@@ -558,11 +610,6 @@
         lines.forEach(line => map.remove(line)); lines = [];
         polygons.forEach(polygon => map.remove(polygon)); polygons = [];
       }
-
-      // 初始化格式选择器
-      setupFormatSelector('points-format-selector', 'pointsFormat', 'points-format-example');
-      setupFormatSelector('lines-format-selector', 'linesFormat', 'lines-format-example');
-      setupFormatSelector('polygon-format-selector', 'polygonFormat', 'polygon-format-example');
 
       // 事件监听
       document.getElementById('show-current-btn').addEventListener('click', showCurrent);
@@ -572,9 +619,10 @@
       // 初始化
       setTimeout(function() { 
         updateCurrentTabIndicator();
-        updateFormatExample('points-format-example', pointsFormat, 'points');
-        updateFormatExample('lines-format-example', linesFormat, 'lines');
-        updateFormatExample('polygon-format-example', polygonFormat, 'polygons');
+        // 初始化格式检测
+        updateFormatIndicator('points');
+        updateFormatIndicator('lines');
+        updateFormatIndicator('polygons');
         // 默认显示所有图形
         showAll();
       }, 500);
