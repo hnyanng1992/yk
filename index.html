@@ -69,11 +69,43 @@
       border-left: 4px solid #3388FF;
       flex-shrink: 0;
     }
+    .action-buttons {
+      background: white;
+      padding: 0 0 10px 0;
+      margin: 0;
+      flex-shrink: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .main-button-group {
+      display: flex; 
+      gap: 8px; 
+      margin: 0;
+    }
+    .main-button-group button {
+      flex: 1; 
+      padding: 10px; 
+      border: none;
+      border-radius: 4px; 
+      cursor: pointer; 
+      font-weight: bold;
+      transition: background 0.3s;
+      font-size: 13px;
+    }
+    .btn-primary { background: #3388FF; color: white; }
+    .btn-primary:hover { background: #297acc; }
+    .btn-secondary { background: #6c757d; color: white; }
+    .btn-secondary:hover { background: #5a6268; }
+    .btn-success { background: #28a745; color: white; }
+    .btn-success:hover { background: #218838; }
+    .btn-warning { background: #ffc107; color: #212529; }
+    .btn-warning:hover { background: #e0a800; }
     .tab-content {
       display: none;
       flex: 1;
       flex-direction: column;
-      gap: 15px;
+      gap: 10px;
     }
     .tab-content.active {
       display: flex;
@@ -88,12 +120,12 @@
     }
     .format-option {
       flex: 1; 
-      padding: 10px 8px;
+      padding: 8px 6px;
       text-align: center; 
       cursor: pointer; 
       background: #f8f9fa;
       border-right: 1px solid #ddd; 
-      font-size: 13px;
+      font-size: 12px;
       transition: all 0.3s;
     }
     .format-option:last-child { 
@@ -112,7 +144,7 @@
     .input-item textarea {
       width: 100%; 
       flex: 1;
-      min-height: 320px;
+      min-height: 300px;
       margin: 0; 
       padding: 12px;
       border: 1px solid #ddd; 
@@ -124,66 +156,34 @@
       line-height: 1.5;
     }
     .format-example {
-      font-size: 12px; 
+      font-size: 11px; 
       color: #666; 
-      margin-top: 8px; 
+      margin-top: 6px; 
       font-style: italic;
       flex-shrink: 0;
     }
-    .action-buttons {
-      background: white;
-      padding: 15px 0 0 0;
-      border-top: 1px solid #eee; 
-      margin-top: 10px;
-      flex-shrink: 0;
-      display: flex;
-      flex-direction: column;
-      gap: 15px;
-    }
-    .main-button-group {
-      display: flex; 
-      gap: 10px; 
-      margin: 0;
-    }
-    .main-button-group button {
-      flex: 1; 
-      padding: 12px; 
-      border: none;
-      border-radius: 4px; 
-      cursor: pointer; 
-      font-weight: bold;
-      transition: background 0.3s;
-      font-size: 14px;
-    }
-    .btn-primary { background: #3388FF; color: white; }
-    .btn-primary:hover { background: #297acc; }
-    .btn-secondary { background: #6c757d; color: white; }
-    .btn-secondary:hover { background: #5a6268; }
-    .btn-success { background: #28a745; color: white; }
-    .btn-success:hover { background: #218838; }
-    .btn-warning { background: #ffc107; color: #212529; }
-    .btn-warning:hover { background: #e0a800; }
     .legend {
-      padding: 12px; 
+      padding: 10px; 
       background: #f8f9fa;
       border-radius: 4px; 
-      font-size: 12px;
+      font-size: 11px;
+      border-top: 1px solid #eee;
     }
     .legend-item {
       display: flex; 
       align-items: center; 
-      margin: 5px 0;
+      margin: 4px 0;
     }
     .legend-color {
-      width: 20px; 
+      width: 18px; 
       height: 3px; 
-      margin-right: 8px;
+      margin-right: 6px;
     }
     .legend-point {
-      width: 12px; 
-      height: 12px; 
+      width: 10px; 
+      height: 10px; 
       border-radius: 50%; 
-      margin-right: 8px;
+      margin-right: 6px;
     }
     .legend-line { background-color: #3388FF; }
     .legend-polygon { background-color: #FF6B6B; }
@@ -218,6 +218,15 @@
       <!-- 当前选中指示器 -->
       <div class="current-tab-indicator" id="current-tab-indicator">当前选中: <strong>点数据</strong></div>
       
+      <!-- 操作按钮 - 移到顶部 -->
+      <div class="action-buttons">
+        <div class="main-button-group">
+          <button class="btn-success" id="show-current-btn">显示当前图形</button>
+          <button class="btn-primary" id="show-all-btn">显示所有图形</button>
+          <button class="btn-secondary" id="clear-all-btn">清除所有</button>
+        </div>
+      </div>
+      
       <!-- 点数据标签页 -->
       <div class="tab-content active" id="points-tab">
         <div class="input-format-selector" id="points-format-selector">
@@ -249,23 +258,16 @@
           <div class="format-option" data-format="wkt">WKT格式</div>
         </div>
         <div class="input-item">
-          <textarea id="polygon-input">116.381098,39.956666;116.382257,39.956668;116.382346,39.955707;116.381771,39.955661;116.381763,39.955471;116.381179,39.955447;116.381098,39.956666</textarea>
+          <textarea id="polygon-input">118.144235,24.480171;118.144039,24.479604;118.141847,24.479660;118.139682,24.479684;118.138182,24.479732;118.134948,24.480479;118.133942,24.481531;118.132470,24.482517;118.129869,24.479710;118.127156,24.479724;118.125790,24.478212;118.124443,24.476089;118.127425,24.476141;118.130030,24.475846;118.134033,24.475496;118.135851,24.475811;118.140755,24.477096;118.143064,24.477110;118.144752,24.476815;118.146908,24.476553;118.148129,24.476487;118.149342,24.476463;118.150950,24.476357;118.151202,24.478166;118.152477,24.478166;118.152845,24.484403;118.153241,24.485521;118.153636,24.486639;118.150546,24.488182;118.145960,24.489379;118.144235,24.480171</textarea>
           <div class="format-example" id="polygon-format-example">格式示例: lng1,lat1;lng2,lat2;lng3,lat3;...</div>
         </div>
       </div>
       
-      <!-- 底部操作按钮 -->
-      <div class="action-buttons">
-        <div class="main-button-group">
-          <button class="btn-success" id="show-current-btn">显示当前图形</button>
-          <button class="btn-primary" id="show-all-btn">显示所有图形</button>
-          <button class="btn-secondary" id="clear-all-btn">清除所有</button>
-        </div>
-        <div class="legend">
-          <div class="legend-item"><div class="legend-point legend-point-color"></div><span>点数据</span></div>
-          <div class="legend-item"><div class="legend-color legend-line"></div><span>线数据</span></div>
-          <div class="legend-item"><div class="legend-color legend-polygon"></div><span>多边形数据</span></div>
-        </div>
+      <!-- 图例 -->
+      <div class="legend">
+        <div class="legend-item"><div class="legend-point legend-point-color"></div><span>点数据</span></div>
+        <div class="legend-item"><div class="legend-color legend-line"></div><span>线数据</span></div>
+        <div class="legend-item"><div class="legend-color legend-polygon"></div><span>多边形数据</span></div>
       </div>
     </div>
   </div>
@@ -274,7 +276,7 @@
   <script src="https://webapi.amap.com/maps?v=2.0&key=1cf9fc45df860df45e87af1230f5da74"></script>
   <script>
     document.addEventListener('DOMContentLoaded', function() {
-      var map = new AMap.Map('container', { zoom: 14, center: [116.296, 39.917], viewMode: '3D' });
+      var map = new AMap.Map('container', { zoom: 14, center: [118.144, 24.480], viewMode: '3D' });
       var points = [], lines = [], polygons = [], currentTab = 'points';
       var pointsFormat = 'coords', linesFormat = 'coords', polygonFormat = 'coords';
       
@@ -489,6 +491,8 @@
                 fillColor: '#FF6B6B', fillOpacity: 0.3
               });
               map.add(polygon); polygons.push(polygon);
+              // 自动调整视图以显示多边形
+              map.setFitView([polygon]);
             }
           } else {
             // WKT格式
@@ -513,6 +517,7 @@
                     fillColor: '#FF6B6B', fillOpacity: 0.3
                   });
                   map.add(polygon); polygons.push(polygon);
+                  map.setFitView([polygon]);
                 }
               });
             } else if (input.toUpperCase().startsWith('MULTIPOLYGON')) {
@@ -539,6 +544,7 @@
                       fillColor: '#FF6B6B', fillOpacity: 0.3
                     });
                     map.add(polygon); polygons.push(polygon);
+                    map.setFitView([polygon]);
                   }
                 });
               });
@@ -569,6 +575,7 @@
         updateFormatExample('points-format-example', pointsFormat, 'points');
         updateFormatExample('lines-format-example', linesFormat, 'lines');
         updateFormatExample('polygon-format-example', polygonFormat, 'polygons');
+        // 默认显示所有图形
         showAll();
       }, 500);
     });
