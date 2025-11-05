@@ -112,7 +112,7 @@
     .input-item textarea {
       width: 100%; 
       flex: 1;
-      min-height: 280px;
+      min-height: 320px;
       margin: 0; 
       padding: 12px;
       border: 1px solid #ddd; 
@@ -130,32 +130,6 @@
       font-style: italic;
       flex-shrink: 0;
     }
-    .tab-button-group {
-      display: flex; 
-      gap: 10px; 
-      margin: 0;
-      flex-shrink: 0;
-    }
-    .tab-button-group button {
-      flex: 1; 
-      padding: 12px; 
-      border: none;
-      border-radius: 4px; 
-      cursor: pointer; 
-      font-weight: bold;
-      transition: background 0.3s;
-      font-size: 14px;
-    }
-    .btn-primary { background: #3388FF; color: white; }
-    .btn-primary:hover { background: #297acc; }
-    .btn-secondary { background: #6c757d; color: white; }
-    .btn-secondary:hover { background: #5a6268; }
-    .btn-success { background: #28a745; color: white; }
-    .btn-success:hover { background: #218838; }
-    .btn-warning { background: #ffc107; color: #212529; }
-    .btn-warning:hover { background: #e0a800; }
-    .btn-info { background: #17a2b8; color: white; }
-    .btn-info:hover { background: #138496; }
     .action-buttons {
       background: white;
       padding: 15px 0 0 0;
@@ -181,6 +155,14 @@
       transition: background 0.3s;
       font-size: 14px;
     }
+    .btn-primary { background: #3388FF; color: white; }
+    .btn-primary:hover { background: #297acc; }
+    .btn-secondary { background: #6c757d; color: white; }
+    .btn-secondary:hover { background: #5a6268; }
+    .btn-success { background: #28a745; color: white; }
+    .btn-success:hover { background: #218838; }
+    .btn-warning { background: #ffc107; color: #212529; }
+    .btn-warning:hover { background: #e0a800; }
     .legend {
       padding: 12px; 
       background: #f8f9fa;
@@ -213,7 +195,7 @@
         max-height: 85vh; 
       }
       .input-item textarea { 
-        min-height: 200px; 
+        min-height: 250px; 
       }
       .panel-content {
         gap: 10px;
@@ -246,9 +228,6 @@
           <textarea id="points-input">116.29642223,39.92031415;116.29628966,39.91976904;116.29609911,39.91929966;116.29603309,39.91915046;116.29583764,39.91876747;116.29581320,39.91873134;116.29570371,39.91856958;116.29545868,39.91814503;116.29514603,39.91752918;116.29501289,39.91723948;116.29494476,39.91699938;116.29489826,39.91671971;116.29488629,39.91630827;116.29488051,39.91574014;116.29490872,39.91308447;116.29490760,39.91291666;116.29487722,39.91027120;116.29487841,39.91016540;116.29487731,39.90937277;116.29487633,39.90788590;116.29488021,39.90774420;116.29487939,39.90754059;116.29487967,39.90741848;116.29488256,39.90724998;116.29487908,39.90665645;116.29488178,39.90584202;116.29491909,39.90387818;116.29492613,39.90247943;116.29488469,39.90024547;116.29491660,39.89835033;116.29491037,39.89741638;116.29491105,39.89724997</textarea>
           <div class="format-example" id="points-format-example">格式示例: lng1,lat1;lng2,lat2;lng3,lat3;...</div>
         </div>
-        <div class="tab-button-group">
-          <button class="btn-info" id="show-points-btn">显示点</button>
-        </div>
       </div>
       
       <!-- 线数据标签页 -->
@@ -260,9 +239,6 @@
         <div class="input-item">
           <textarea id="lines-input">116.29642223,39.92031415;116.29628966,39.91976904;116.29609911,39.91929966;116.29603309,39.91915046;116.29583764,39.91876747;116.29581320,39.91873134;116.29570371,39.91856958;116.29545868,39.91814503;116.29514603,39.91752918;116.29501289,39.91723948;116.29494476,39.91699938;116.29489826,39.91671971;116.29488629,39.91630827;116.29488051,39.91574014;116.29490872,39.91308447;116.29490760,39.91291666;116.29487722,39.91027120;116.29487841,39.91016540;116.29487731,39.90937277;116.29487633,39.90788590;116.29488021,39.90774420;116.29487939,39.90754059;116.29487967,39.90741848;116.29488256,39.90724998;116.29487908,39.90665645;116.29488178,39.90584202;116.29491909,39.90387818;116.29492613,39.90247943;116.29488469,39.90024547;116.29491660,39.89835033;116.29491037,39.89741638;116.29491105,39.89724997|116.29507250,39.89724579;116.29508494,39.89823985;116.29507074,39.90002902;116.29507217,39.90025133;116.29507137,39.90104876;116.29507844,39.90156980;116.29509458,39.90247856;116.29509586,39.90387622;116.29508062,39.90620530;116.29507453,39.90713944;116.29507555,39.90725024;116.29507707,39.90741995;116.29508029,39.90754506;116.29510976,39.90774271;116.29510120,39.90897805;116.29510065,39.90934997;116.29509377,39.90965097;116.29507910,39.91005047;116.29507901,39.91016697;116.29507243,39.91277858;116.29507225,39.91291388;116.29506200,39.91510776;116.29506546,39.91550458;116.29505853,39.91616060;116.29506567,39.91638752;116.29508593,39.91660366;116.29511439,39.91677590;116.29513905,39.91692934;116.29518844,39.91711542;116.29522873,39.91729078;116.29530647,39.91750979;116.29580013,39.91838101;116.29588207,39.91848642;116.29593105,39.91854619;116.29602943,39.91870614;116.29622888,39.91909563;116.29627557,39.91919310</textarea>
           <div class="format-example" id="lines-format-example">格式示例: lng1,lat1;lng2,lat2;lng3,lat3;...|另一条线坐标...</div>
-        </div>
-        <div class="tab-button-group">
-          <button class="btn-primary" id="show-lines-btn">显示线段</button>
         </div>
       </div>
       
@@ -276,16 +252,13 @@
           <textarea id="polygon-input">116.381098,39.956666;116.382257,39.956668;116.382346,39.955707;116.381771,39.955661;116.381763,39.955471;116.381179,39.955447;116.381098,39.956666</textarea>
           <div class="format-example" id="polygon-format-example">格式示例: lng1,lat1;lng2,lat2;lng3,lat3;...</div>
         </div>
-        <div class="tab-button-group">
-          <button class="btn-success" id="show-polygons-btn">显示多边形</button>
-        </div>
       </div>
       
       <!-- 底部操作按钮 -->
       <div class="action-buttons">
         <div class="main-button-group">
+          <button class="btn-success" id="show-current-btn">显示当前图形</button>
           <button class="btn-primary" id="show-all-btn">显示所有图形</button>
-          <button class="btn-warning" id="show-current-btn">仅显示当前图形</button>
           <button class="btn-secondary" id="clear-all-btn">清除所有</button>
         </div>
         <div class="legend">
@@ -356,11 +329,18 @@
         document.getElementById('current-tab-indicator').innerHTML = `当前选中: <strong>${tabNames[currentTab]}</strong>`;
       }
 
-      function showAll() { clearAll(); showPoints(); showLines(); showPolygons(); }
-      function showCurrent() { clearAll(); 
+      function showCurrent() { 
+        clearAll(); 
         if (currentTab === 'points') showPoints(); 
         else if (currentTab === 'lines') showLines(); 
         else if (currentTab === 'polygons') showPolygons(); 
+      }
+
+      function showAll() { 
+        clearAll(); 
+        showPoints(); 
+        showLines(); 
+        showPolygons(); 
       }
 
       // 显示点数据
@@ -579,11 +559,8 @@
       setupFormatSelector('polygon-format-selector', 'polygonFormat', 'polygon-format-example');
 
       // 事件监听
-      document.getElementById('show-points-btn').addEventListener('click', showPoints);
-      document.getElementById('show-lines-btn').addEventListener('click', showLines);
-      document.getElementById('show-polygons-btn').addEventListener('click', showPolygons);
-      document.getElementById('show-all-btn').addEventListener('click', showAll);
       document.getElementById('show-current-btn').addEventListener('click', showCurrent);
+      document.getElementById('show-all-btn').addEventListener('click', showAll);
       document.getElementById('clear-all-btn').addEventListener('click', clearAll);
 
       // 初始化
