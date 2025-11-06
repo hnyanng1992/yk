@@ -360,16 +360,16 @@
         </div>
         
         <div class="panel-content">
-            <!-- 标签导航 -->
+            <!-- 标签导航 - 多边形数据默认激活 -->
             <div class="tabs">
-                <div class="tab active" data-tab="points">点数据</div>
+                <div class="tab" data-tab="points">点数据</div>
                 <div class="tab" data-tab="lines">线数据</div>
-                <div class="tab" data-tab="polygons">多边形数据</div>
+                <div class="tab active" data-tab="polygons">多边形数据</div>
             </div>
             
             <!-- 当前选中指示器 -->
             <div class="current-tab-indicator" id="current-tab-indicator">
-                当前选中: <strong>点数据</strong>
+                当前选中: <strong>多边形数据</strong>
             </div>
             
             <!-- 操作按钮 -->
@@ -388,7 +388,7 @@
             </div>
             
             <!-- 点数据标签页 -->
-            <div class="tab-content active" id="points-tab">
+            <div class="tab-content" id="points-tab">
                 <div class="format-indicator" id="points-format-indicator">
                     检测到格式: <strong>WKT</strong>
                 </div>
@@ -427,8 +427,8 @@ MULTILINESTRING((116.123 39.456,116.124 39.457),(116.125 39.458,116.126 39.459))
                 </div>
             </div>
             
-            <!-- 多边形数据标签页 -->
-            <div class="tab-content" id="polygons-tab">
+            <!-- 多边形数据标签页 - 默认激活 -->
+            <div class="tab-content active" id="polygons-tab">
                 <div class="format-indicator" id="polygon-format-indicator">
                     检测到格式: <strong>WKT</strong>
                 </div>
@@ -440,7 +440,11 @@ MULTILINESTRING((116.123 39.456,116.124 39.457),(116.125 39.458,116.126 39.459))
 
 WKT格式示例:
 POLYGON((116.123 39.456,116.124 39.457,116.125 39.458,116.123 39.456))
-MULTIPOLYGON(((116.123 39.456,116.124 39.457,116.125 39.458,116.123 39.456)))">POLYGON((116.417694 39.915705, 116.426632 39.915584, 116.426236 39.924278, 116.417476 39.924379, 116.417694 39.915705))</textarea>
+MULTIPOLYGON(((116.123 39.456,116.124 39.457,116.125 39.458,116.123 39.456)))">POLYGON((116.417694 39.915705, 116.426632 39.915584, 116.426236 39.924278, 116.417476 39.924379, 116.417694 39.915705))
+
+POLYGON((116.397694 39.935705, 116.406632 39.935584, 116.406236 39.944278, 116.397476 39.944379, 116.397694 39.935705))
+
+POLYGON((116.437694 39.895705, 116.446632 39.895584, 116.446236 39.904278, 116.437476 39.904379, 116.437694 39.895705))</textarea>
                 </div>
                 <div class="format-example">
                     提示: 多边形数据支持坐标串(首尾坐标需相同以闭合)和WKT(POLYGON/MULTIPOLYGON)格式
@@ -480,7 +484,7 @@ MULTIPOLYGON(((116.123 39.456,116.124 39.457,116.125 39.458,116.123 39.456)))">P
                 viewMode: '3D'
             });
             
-            var points = [], lines = [], polygons = [], currentTab = 'points';
+            var points = [], lines = [], polygons = [], currentTab = 'polygons'; // 默认当前标签为多边形
             
             // 自动检测格式的函数
             function detectFormat(input, type) {
@@ -912,64 +916,37 @@ MULTIPOLYGON(((116.123 39.456,116.124 39.457,116.125 39.458,116.123 39.456)))">P
                         }
                     } else if (format === 'wkt') {
                         // WKT格式
-                        if (input.toUpperCase().startsWith('POLYGON')) {
-                            var content = input.substring(input.indexOf('((') + 2, input.lastIndexOf('))'));
-                            var rings = content.split('),(');
+                        var polygonCount = 0;
+                        
+                        // 处理多行输入，每行一个POLYGON
+                        var polygonStrings = input.split('\n').filter(line => line.trim() !== '');
+                        
+                        polygonStrings.forEach(polygonStr => {
+                            polygonStr = polygonStr.trim();
                             
-                            rings.forEach(ringContent => {
-                                var coords = [];
-                                var points = ringContent.split(',');
-                                
-                                points.forEach(point => {
-                                    point = point.trim();
-                                    var parts = point.split(/\s+/);
-                                    if (parts.length >= 2) {
-                                        var lng = parseFloat(parts[0]), lat = parseFloat(parts[1]);
-                                        if (!isNaN(lng) && !isNaN(lat)) {
-                                            coords.push([lng, lat]);
-                                        }
-                                    }
-                                });
-                                
-                                // 确保多边形闭合
-                                if (coords.length > 0 && (coords[0][0] !== coords[coords.length-1][0] || coords[0][1] !== coords[coords.length-1][1])) {
-                                    coords.push([coords[0][0], coords[0][1]]);
-                                }
-                                
-                                if (coords.length >= 3) {
-                                    var polygon = new AMap.Polygon({
-                                        path: coords, 
-                                        strokeColor: '#FF6B6B', 
-                                        strokeWeight: 3, 
-                                        strokeOpacity: 0.8,
-                                        fillColor: '#FF6B6B', 
-                                        fillOpacity: 0.3
-                                    });
-                                    map.add(polygon); 
-                                    polygons.push(polygon);
-                                    map.setFitView([polygon]);
-                                    showStatus('成功添加多边形', true);
-                                } else {
-                                    showStatus('多边形需要至少3个点', false);
-                                }
-                            });
-                        } else if (input.toUpperCase().startsWith('MULTIPOLYGON')) {
-                            var multiContent = input.substring(input.indexOf('((') + 2, input.lastIndexOf('))'));
-                            var polygonsContent = multiContent.split(')),((');
-                            
-                            polygonsContent.forEach(polyContent => {
-                                var rings = polyContent.split('),(');
+                            if (polygonStr.toUpperCase().startsWith('POLYGON')) {
+                                var content = polygonStr.substring(polygonStr.indexOf('((') + 2, polygonStr.lastIndexOf('))'));
+                                var rings = content.split('),(');
                                 
                                 rings.forEach(ringContent => {
                                     var coords = [];
                                     var points = ringContent.split(',');
+                                    
                                     points.forEach(point => {
-                                        var parts = point.trim().split(/\s+/);
+                                        point = point.trim();
+                                        var parts = point.split(/\s+/);
                                         if (parts.length >= 2) {
                                             var lng = parseFloat(parts[0]), lat = parseFloat(parts[1]);
-                                            if (!isNaN(lng) && !isNaN(lat)) coords.push([lng, lat]);
+                                            if (!isNaN(lng) && !isNaN(lat)) {
+                                                coords.push([lng, lat]);
+                                            }
                                         }
                                     });
+                                    
+                                    // 确保多边形闭合
+                                    if (coords.length > 0 && (coords[0][0] !== coords[coords.length-1][0] || coords[0][1] !== coords[coords.length-1][1])) {
+                                        coords.push([coords[0][0], coords[0][1]]);
+                                    }
                                     
                                     if (coords.length >= 3) {
                                         var polygon = new AMap.Polygon({
@@ -982,13 +959,50 @@ MULTIPOLYGON(((116.123 39.456,116.124 39.457,116.125 39.458,116.123 39.456)))">P
                                         });
                                         map.add(polygon); 
                                         polygons.push(polygon);
-                                        map.setFitView([polygon]);
-                                        showStatus('成功添加多边形', true);
-                                    } else {
-                                        showStatus('多边形需要至少3个点', false);
+                                        polygonCount++;
                                     }
                                 });
-                            });
+                            } else if (polygonStr.toUpperCase().startsWith('MULTIPOLYGON')) {
+                                var multiContent = polygonStr.substring(polygonStr.indexOf('((') + 2, polygonStr.lastIndexOf('))'));
+                                var polygonsContent = multiContent.split(')),((');
+                                
+                                polygonsContent.forEach(polyContent => {
+                                    var rings = polyContent.split('),(');
+                                    
+                                    rings.forEach(ringContent => {
+                                        var coords = [];
+                                        var points = ringContent.split(',');
+                                        points.forEach(point => {
+                                            var parts = point.trim().split(/\s+/);
+                                            if (parts.length >= 2) {
+                                                var lng = parseFloat(parts[0]), lat = parseFloat(parts[1]);
+                                                if (!isNaN(lng) && !isNaN(lat)) coords.push([lng, lat]);
+                                            }
+                                        });
+                                        
+                                        if (coords.length >= 3) {
+                                            var polygon = new AMap.Polygon({
+                                                path: coords, 
+                                                strokeColor: '#FF6B6B', 
+                                                strokeWeight: 3, 
+                                                strokeOpacity: 0.8,
+                                                fillColor: '#FF6B6B', 
+                                                fillOpacity: 0.3
+                                            });
+                                            map.add(polygon); 
+                                            polygons.push(polygon);
+                                            polygonCount++;
+                                        }
+                                    });
+                                });
+                            }
+                        });
+                        
+                        if (polygonCount > 0) {
+                            showStatus(`成功添加 ${polygonCount} 个多边形`, true);
+                            map.setFitView(polygons);
+                        } else {
+                            showStatus('未找到有效的多边形数据', false);
                         }
                     } else {
                         showStatus('无法识别多边形数据格式，请检查输入格式', false);
