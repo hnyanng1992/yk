@@ -139,6 +139,81 @@
             justify-content: center;
             gap: 6px;
         }
+
+        .search-entry-panel {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            width: 360px;
+            background: #fff;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+            border-radius: 12px;
+            z-index: 10;
+            padding: 12px;
+        }
+
+        .map-query-panel {
+            border: 1px solid #e8edf5;
+            border-radius: 8px;
+            padding: 12px;
+            background: #fbfdff;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .search-title {
+            font-size: 14px;
+            color: #234;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+
+        .query-row {
+            display: flex;
+            gap: 8px;
+        }
+
+        .query-row input {
+            flex: 1;
+            border: 1px solid #d7dde8;
+            border-radius: 6px;
+            padding: 8px 10px;
+            font-size: 13px;
+        }
+
+        .query-row input:focus {
+            outline: none;
+            border-color: #3388FF;
+            box-shadow: 0 0 0 2px rgba(51, 136, 255, 0.15);
+        }
+
+        .query-actions {
+            display: flex;
+            gap: 8px;
+        }
+
+        .query-actions button {
+            flex: 1;
+            padding: 8px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            color: #fff;
+            font-size: 13px;
+        }
+
+        .btn-query { background: #ff8c42; }
+
+        .search-result-list {
+            max-height: 220px;
+            overflow-y: auto;
+            border: 1px solid #e8edf5;
+            border-radius: 6px;
+            padding: 6px;
+            background: #fff;
+            font-size: 12px;
+        }
         
         .btn-primary {
             background: #3388FF;
@@ -325,6 +400,12 @@
                 width: calc(100% - 40px);
                 max-height: 85vh;
             }
+            .search-entry-panel {
+                width: calc(100% - 40px);
+                top: auto;
+                right: 20px;
+                bottom: 20px;
+            }
             .input-item textarea {
                 min-height: 250px;
             }
@@ -433,6 +514,19 @@ MULTIPOLYGON(((116.267 40.143, ...)), ((116.278 40.150, ...)))">MULTIPOLYGON (((
         </div>
     </div>
 
+    <div class="search-entry-panel">
+        <div class="search-title">🔎 高德目的地查询入口</div>
+        <div class="map-query-panel">
+            <div class="query-row">
+                <input id="destination-input" type="text" placeholder="输入目的地关键词，如：天府广场" />
+            </div>
+            <div class="query-actions">
+                <button class="btn-query" id="search-destination-btn">搜索目的地</button>
+            </div>
+            <div id="search-result-list" class="search-result-list"></div>
+        </div>
+    </div>
+
     <script src="https://cache.amap.com/lbs/static/es5.min.js"></script>
     <script src="https://webapi.amap.com/maps?v=2.0&key=1cf9fc45df860df45e87af1230f5da74"></script>
     <script>
@@ -445,11 +539,21 @@ MULTIPOLYGON(((116.267 40.143, ...)), ((116.278 40.150, ...)))">MULTIPOLYGON (((
             });
             
             var points = [], lines = [], polygons = [], currentTab = 'polygons';
+            var placeSearchInstance = null;
+
+            function normalizeInputText(text) {
+                return (text || '')
+                    .replace(/[，]/g, ',')
+                    .replace(/[；]/g, ';')
+                    .replace(/[｜]/g, '|')
+                    .replace(/\u3000/g, ' ');
+            }
 
             // 自动检测格式
             function detectFormat(input, type) {
                 if (!input || input.trim() === '') return 'unknown';
-                var text = input.trim().toUpperCase();
+                var normalized = normalizeInputText(input);
+                var text = normalized.trim().toUpperCase();
                 if (type === 'points') {
                     if (text.startsWith('MULTIPOINT') || text.startsWith('POINT')) return 'wkt';
                 } else if (type === 'lines') {
@@ -457,8 +561,25 @@ MULTIPOLYGON(((116.267 40.143, ...)), ((116.278 40.150, ...)))">MULTIPOLYGON (((
                 } else if (type === 'polygons') {
                     if (text.startsWith('MULTIPOLYGON') || text.startsWith('POLYGON')) return 'wkt';
                 }
-                if (input.includes(';') || (input.includes(' ') && input.includes(','))) return 'coords';
+                if (extractCoordinatePairs(normalized).length > 0) return 'coords';
                 return 'unknown';
+            }
+
+            function extractCoordinatePairs(text) {
+                var normalized = normalizeInputText(text);
+                var matches = normalized.match(/-?\d+(?:\.\d+)?\s*[, ]\s*-?\d+(?:\.\d+)?/g) || [];
+                return matches.map(m => {
+                    var parts = m.trim().split(/[, ]+/);
+                    return [parseFloat(parts[0]), parseFloat(parts[1])];
+                }).filter(pair => !isNaN(pair[0]) && !isNaN(pair[1]));
+            }
+
+            function normalizePolygonRing(coords) {
+                if (coords.length > 2) {
+                    var first = coords[0], last = coords[coords.length - 1];
+                    if (first[0] !== last[0] || first[1] !== last[1]) coords.push([first[0], first[1]]);
+                }
+                return coords;
             }
             
             function updateFormatIndicator(type) {
@@ -526,68 +647,107 @@ MULTIPOLYGON(((116.267 40.143, ...)), ((116.278 40.150, ...)))">MULTIPOLYGON (((
                 showPolygons(); 
             }
 
-            // 点数据展示 (保持不变)
+            // 点数据展示（支持 WKT/坐标串）
             function showPoints() {
                 points.forEach(point => map.remove(point)); points = [];
                 var input = document.getElementById('points-input').value.trim();
                 if (!input) return;
-                var format = detectFormat(input, 'points');
                 try {
-                    var matches = input.match(/[\d.]+\s*[, ]\s*[\d.]+/g);
-                    if (matches) {
-                        matches.forEach(m => {
-                            var parts = m.split(/[, ]+/);
-                            if (parts.length >= 2) {
-                                var lng = parseFloat(parts[0]), lat = parseFloat(parts[1]);
-                                if (!isNaN(lng) && !isNaN(lat)) {
-                                    var point = new AMap.Marker({
-                                        position: [lng, lat],
-                                        icon: new AMap.Icon({
-                                            size: new AMap.Size(8, 8),
-                                            image: 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iOCIgIGhlaWdodD0iOCIgdmlld0JveD0iMCAwIDggOCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48Y2lyY2xlIGN4PSI0IiBjeT0iNCIgcj0iNCIgZmlsbD0iIzI4YTc0NSIvPjwvc3ZnPg==',
-                                            anchor: 'center'
-                                        })
-                                    });
-                                    map.add(point); points.push(point);
-                                }
-                            }
+                    extractCoordinatePairs(input).forEach(coord => {
+                        var point = new AMap.Marker({
+                            position: coord,
+                            icon: new AMap.Icon({
+                                size: new AMap.Size(8, 8),
+                                image: 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iOCIgIGhlaWdodD0iOCIgdmlld0JveD0iMCAwIDggOCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48Y2lyY2xlIGN4PSI0IiBjeT0iNCIgcj0iNCIgZmlsbD0iIzI4YTc0NSIvPjwvc3ZnPg==',
+                                anchor: 'center'
+                            })
                         });
+                        map.add(point);
+                        points.push(point);
+                    });
+
+                    if (points.length > 0) {
                         map.setFitView(points);
-                        showStatus(`成功添加点数据`, true);
+                        showStatus(`成功添加 ${points.length} 个点`, true);
+                    } else {
+                        showStatus('未能解析点数据', false);
                     }
                 } catch (e) { showStatus('解析点数据出错', false); }
             }
 
-            // 线数据展示 (保持不变)
+            function searchDestination() {
+                var keyword = document.getElementById('destination-input').value.trim();
+                if (!keyword) {
+                    showStatus('请输入目的地关键词', false);
+                    return;
+                }
+                AMap.plugin(['AMap.PlaceSearch'], function () {
+                    if (!placeSearchInstance) {
+                        placeSearchInstance = new AMap.PlaceSearch({
+                            city: '全国',
+                            citylimit: false,
+                            map: map,
+                            panel: 'search-result-list',
+                            pageSize: 8,
+                            autoFitView: true
+                        });
+                    } else {
+                        placeSearchInstance.clear();
+                    }
+
+                    document.getElementById('search-result-list').innerHTML = '';
+                    placeSearchInstance.search(keyword, function (status, result) {
+                        if (status !== 'complete' || !result || !result.poiList || !result.poiList.pois.length) {
+                            showStatus('未找到目的地，请换个关键词', false);
+                            return;
+                        }
+                        showStatus('已找到 ' + result.poiList.pois.length + ' 个目的地候选', true);
+                    });
+                });
+            }
+
+            // 线数据展示（支持 WKT/坐标串）
             function showLines() {
                 lines.forEach(line => map.remove(line)); lines = [];
                 var input = document.getElementById('lines-input').value.trim();
                 if (!input) return;
                 
                 try {
-                    // 简易 WKT 提取逻辑，适配 MULTILINESTRING
-                    var parts = input.match(/\(([\d.,\s]+)\)/g);
-                    if (parts) {
+                    var format = detectFormat(input, 'lines');
+
+                    if (format === 'wkt') {
+                        var parts = input.match(/\([^()]+\)/g) || [];
                         parts.forEach(part => {
-                            var coords = [];
-                            var raw = part.replace(/[()]/g, '').trim();
-                            var pArr = raw.split(',');
-                            pArr.forEach(p => {
-                                var xy = p.trim().split(/\s+/);
-                                if (xy.length >= 2) coords.push([parseFloat(xy[0]), parseFloat(xy[1])]);
-                            });
+                            var coords = extractCoordinatePairs(part);
                             if (coords.length > 1) {
                                 var line = new AMap.Polyline({ path: coords, strokeColor: '#3388FF', strokeWeight: 4 });
-                                map.add(line); lines.push(line);
+                                map.add(line);
+                                lines.push(line);
                             }
                         });
+                    } else {
+                        var lineTexts = normalizeInputText(input).split(/\n+|;/).map(t => t.trim()).filter(Boolean);
+                        if (lineTexts.length <= 1) lineTexts = [input];
+                        lineTexts.forEach(text => {
+                            var coords = extractCoordinatePairs(text);
+                            if (coords.length > 1) {
+                                var line = new AMap.Polyline({ path: coords, strokeColor: '#3388FF', strokeWeight: 4 });
+                                map.add(line);
+                                lines.push(line);
+                            }
+                        });
+                    }
+
+                    if (lines.length > 0) {
                         map.setFitView(lines);
-                        showStatus(`成功添加线数据`, true);
+                        showStatus(`成功添加 ${lines.length} 条线`, true);
+                    } else {
+                        showStatus('未能解析线数据', false);
                     }
                 } catch (e) { showStatus('解析线数据出错', false); }
             }
 
-            // 【核心修复】多边形数据展示
+            // 多边形数据展示（支持 WKT/坐标串）
             function showPolygons() {
                 polygons.forEach(p => map.remove(p)); polygons = [];
                 var input = document.getElementById('polygon-input').value.trim();
@@ -599,18 +759,7 @@ MULTIPOLYGON(((116.267 40.143, ...)), ((116.278 40.150, ...)))">MULTIPOLYGON (((
 
                 try {
                     // 解析坐标对的辅助函数 "x y, x y" -> [[x,y], [x,y]]
-                    function parseRing(str) {
-                        var coords = [];
-                        var points = str.replace(/[()]/g, '').split(',');
-                        points.forEach(p => {
-                            var xy = p.trim().split(/\s+/);
-                            if (xy.length >= 2) {
-                                var lng = parseFloat(xy[0]), lat = parseFloat(xy[1]);
-                                if (!isNaN(lng) && !isNaN(lat)) coords.push([lng, lat]);
-                            }
-                        });
-                        return coords;
-                    }
+                    function parseRing(str) { return normalizePolygonRing(extractCoordinatePairs(str)); }
 
                     if (cleanInput.includes('MULTIPOLYGON')) {
                         // 提取最外层括号内容
@@ -664,20 +813,27 @@ MULTIPOLYGON(((116.267 40.143, ...)), ((116.278 40.150, ...)))">MULTIPOLYGON (((
                             count++;
                         }
                     } else {
-                        // 尝试坐标串格式
-                        var coords = parseRing(input);
-                        if (coords.length > 2) {
-                             var polygon = new AMap.Polygon({
-                                path: coords,
-                                strokeColor: '#FF6B6B',
-                                strokeWeight: 3,
-                                strokeOpacity: 0.8,
-                                fillColor: '#FF6B6B',
-                                fillOpacity: 0.35
-                            });
-                            map.add(polygon); polygons.push(polygon);
-                            count++;
-                        }
+                        // 坐标串格式：多个面可用换行或 ; 分隔，洞可用 | 分隔
+                        var polygonTexts = normalizeInputText(input).split(/\n+|;/).map(t => t.trim()).filter(Boolean);
+                        if (polygonTexts.length <= 1) polygonTexts = [input];
+
+                        polygonTexts.forEach(polyText => {
+                            var ringTexts = normalizeInputText(polyText).split('|').map(t => t.trim()).filter(Boolean);
+                            var path = ringTexts.map(parseRing).filter(ring => ring.length > 3);
+                            if (path.length > 0) {
+                                var polygon = new AMap.Polygon({
+                                    path: path.length === 1 ? path[0] : path,
+                                    strokeColor: '#FF6B6B',
+                                    strokeWeight: 3,
+                                    strokeOpacity: 0.8,
+                                    fillColor: '#FF6B6B',
+                                    fillOpacity: 0.35
+                                });
+                                map.add(polygon);
+                                polygons.push(polygon);
+                                count++;
+                            }
+                        });
                     }
 
                     if (count > 0) {
@@ -696,12 +852,17 @@ MULTIPOLYGON(((116.267 40.143, ...)), ((116.278 40.150, ...)))">MULTIPOLYGON (((
                 points.forEach(p => map.remove(p)); points = [];
                 lines.forEach(l => map.remove(l)); lines = [];
                 polygons.forEach(p => map.remove(p)); polygons = [];
+                if (placeSearchInstance) {
+                    placeSearchInstance.clear();
+                    document.getElementById('search-result-list').innerHTML = '';
+                }
                 showStatus('已清除所有图形', true);
             }
 
             document.getElementById('show-current-btn').addEventListener('click', showCurrent);
             document.getElementById('show-all-btn').addEventListener('click', showAll);
             document.getElementById('clear-all-btn').addEventListener('click', clearAll);
+            document.getElementById('search-destination-btn').addEventListener('click', searchDestination);
 
             setTimeout(function() { 
                 updateCurrentTabIndicator();
