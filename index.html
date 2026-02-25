@@ -456,7 +456,7 @@ MULTIPOLYGON(((116.267 40.143, ...)), ((116.278 40.150, ...)))">MULTIPOLYGON (((
             
             <div class="status-message" id="status-message"></div>
             <div class="intersection-panel" id="intersection-panel">
-                <div class="intersection-panel-title">⚠️ 检测到多边形自相交，点击可定位：</div>
+                <div class="intersection-panel-title" id="intersection-panel-title">⚠️ 检测到多边形自相交，点击可定位：</div>
                 <ul class="intersection-list" id="intersection-list"></ul>
             </div>
             
@@ -545,14 +545,17 @@ MULTIPOLYGON(((116.267 40.143, ...)), ((116.278 40.150, ...)))">MULTIPOLYGON (((
 
             function renderIntersectionAlerts(items) {
                 var panel = document.getElementById('intersection-panel');
+                var title = document.getElementById('intersection-panel-title');
                 var list = document.getElementById('intersection-list');
-                if (!panel || !list) return;
+                if (!panel || !list || !title) return;
 
                 list.innerHTML = '';
                 if (!items || items.length === 0) {
                     panel.style.display = 'none';
                     return;
                 }
+
+                title.textContent = `⚠️ 检测到 ${items.length} 处多边形自相交，点击可定位：`;
 
                 items.forEach((item, index) => {
                     var li = document.createElement('li');
@@ -885,6 +888,7 @@ MULTIPOLYGON(((116.267 40.143, ...)), ((116.278 40.150, ...)))">MULTIPOLYGON (((
                         var message = `成功绘制 ${count} 个地块`;
                         intersectionCount = intersections.length;
                         if (intersectionCount > 0) message += `，检测到 ${intersectionCount} 处自相交`;
+                        else message += '，未检测到自相交';
                         showStatus(message, true);
                         renderIntersectionAlerts(intersections);
                         intersectionAlerts = intersections;
