@@ -140,53 +140,6 @@
             gap: 6px;
         }
 
-        .map-query-panel {
-            border: 1px solid #e8edf5;
-            border-radius: 8px;
-            padding: 12px;
-            background: #fbfdff;
-            display: flex;
-            flex-direction: column;
-            gap: 10px;
-        }
-
-        .query-row {
-            display: flex;
-            gap: 8px;
-        }
-
-        .query-row input {
-            flex: 1;
-            border: 1px solid #d7dde8;
-            border-radius: 6px;
-            padding: 8px 10px;
-            font-size: 13px;
-        }
-
-        .query-row input:focus {
-            outline: none;
-            border-color: #3388FF;
-            box-shadow: 0 0 0 2px rgba(51, 136, 255, 0.15);
-        }
-
-        .query-actions {
-            display: flex;
-            gap: 8px;
-        }
-
-        .query-actions button {
-            flex: 1;
-            padding: 8px;
-            border: none;
-            border-radius: 6px;
-            cursor: pointer;
-            color: #fff;
-            font-size: 13px;
-        }
-
-        .btn-query { background: #ff8c42; }
-        .btn-route { background: #6f42c1; }
-        
         .btn-primary {
             background: #3388FF;
             color: white;
@@ -418,20 +371,6 @@
                         <span>🗑️</span> 清除所有
                     </button>
                 </div>
-
-                <div class="map-query-panel">
-                    <div class="query-row">
-                        <input id="destination-input" type="text" placeholder="目的地关键词，如：天府广场" />
-                    </div>
-                    <div class="query-row">
-                        <input id="start-input" type="text" placeholder="起点（为空默认“我的位置”）" />
-                        <input id="end-input" type="text" placeholder="终点" />
-                    </div>
-                    <div class="query-actions">
-                        <button class="btn-query" id="search-destination-btn">🔎 搜索目的地</button>
-                        <button class="btn-route" id="route-plan-btn">🧭 路线规划</button>
-                    </div>
-                </div>
             </div>
             
             <!-- 点数据标签页 -->
@@ -490,6 +429,10 @@ MULTIPOLYGON(((116.267 40.143, ...)), ((116.278 40.150, ...)))">MULTIPOLYGON (((
                     <div class="legend-color legend-polygon"></div>
                     <span>多边形数据</span>
                 </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background-color:#ff3b30;height:6px;"></div>
+                    <span>自相交高亮</span>
+                </div>
             </div>
         </div>
     </div>
@@ -505,8 +448,7 @@ MULTIPOLYGON(((116.267 40.143, ...)), ((116.278 40.150, ...)))">MULTIPOLYGON (((
                 viewMode: '3D'
             });
             
-            var points = [], lines = [], polygons = [], currentTab = 'polygons';
-            var searchMarkers = [], driving = null;
+            var points = [], lines = [], polygons = [], polygonDiagnostics = [], currentTab = 'polygons';
 
             function normalizeInputText(text) {
                 return (text || '')
@@ -547,6 +489,112 @@ MULTIPOLYGON(((116.267 40.143, ...)), ((116.278 40.150, ...)))">MULTIPOLYGON (((
                     if (first[0] !== last[0] || first[1] !== last[1]) coords.push([first[0], first[1]]);
                 }
                 return coords;
+            }
+
+            function clearPolygonDiagnostics() {
+                polygonDiagnostics.forEach(item => map.remove(item));
+                polygonDiagnostics = [];
+            }
+
+            function segmentIntersection(a, b, c, d) {
+                var r = [b[0] - a[0], b[1] - a[1]];
+                var s = [d[0] - c[0], d[1] - c[1]];
+                var denominator = r[0] * s[1] - r[1] * s[0];
+                if (Math.abs(denominator) < 1e-12) return null;
+
+                var diff = [c[0] - a[0], c[1] - a[1]];
+                var t = (diff[0] * s[1] - diff[1] * s[0]) / denominator;
+                var u = (diff[0] * r[1] - diff[1] * r[0]) / denominator;
+
+                if (t < 0 || t > 1 || u < 0 || u > 1) return null;
+                return [a[0] + t * r[0], a[1] + t * r[1]];
+            }
+
+            function detectRingSelfIntersections(ring) {
+                if (!ring || ring.length < 4) return [];
+                var intersections = [];
+                var seen = new Set();
+
+                for (var i = 0; i < ring.length - 1; i++) {
+                    var a1 = ring[i], a2 = ring[i + 1];
+                    for (var j = i + 1; j < ring.length - 1; j++) {
+                        if (Math.abs(i - j) <= 1) continue;
+                        if (i === 0 && j === ring.length - 2) continue;
+
+                        var b1 = ring[j], b2 = ring[j + 1];
+                        var point = segmentIntersection(a1, a2, b1, b2);
+                        if (!point) continue;
+
+                        var key = point[0].toFixed(7) + ',' + point[1].toFixed(7) + ':' + i + '-' + j;
+                        if (seen.has(key)) continue;
+                        seen.add(key);
+                        intersections.push({ point: point, segA: i, segB: j });
+                    }
+                }
+                return intersections;
+            }
+
+            function highlightSelfIntersections(path) {
+                var rings = (path.length > 0 && Array.isArray(path[0][0])) ? path : [path];
+                var segmentKeys = new Set();
+                var pointKeys = new Set();
+                var total = 0;
+
+                rings.forEach((ring, ringIndex) => {
+                    var intersections = detectRingSelfIntersections(ring);
+                    total += intersections.length;
+
+                    intersections.forEach(hit => {
+                        var pKey = hit.point[0].toFixed(7) + ',' + hit.point[1].toFixed(7);
+                        if (!pointKeys.has(pKey)) {
+                            pointKeys.add(pKey);
+                            var marker = new AMap.CircleMarker({
+                                center: hit.point,
+                                radius: 7,
+                                strokeColor: '#ff3b30',
+                                strokeWeight: 2,
+                                strokeOpacity: 1,
+                                fillColor: '#ffd6d3',
+                                fillOpacity: 0.9,
+                                zIndex: 80
+                            });
+                            map.add(marker);
+                            polygonDiagnostics.push(marker);
+                        }
+
+                        [hit.segA, hit.segB].forEach(segIndex => {
+                            var sKey = ringIndex + ':' + segIndex;
+                            if (segmentKeys.has(sKey)) return;
+                            segmentKeys.add(sKey);
+                            var segLine = new AMap.Polyline({
+                                path: [ring[segIndex], ring[segIndex + 1]],
+                                strokeColor: '#ff3b30',
+                                strokeWeight: 6,
+                                strokeOpacity: 0.9,
+                                lineJoin: 'round',
+                                zIndex: 70
+                            });
+                            map.add(segLine);
+                            polygonDiagnostics.push(segLine);
+                        });
+                    });
+                });
+
+                return total;
+            }
+
+            function addPolygonWithDiagnostics(path) {
+                var polygon = new AMap.Polygon({
+                    path: path,
+                    strokeColor: '#FF6B6B',
+                    strokeWeight: 3,
+                    strokeOpacity: 0.8,
+                    fillColor: '#FF6B6B',
+                    fillOpacity: 0.35
+                });
+                map.add(polygon);
+                polygons.push(polygon);
+                return highlightSelfIntersections(path);
             }
             
             function updateFormatIndicator(type) {
@@ -601,14 +649,12 @@ MULTIPOLYGON(((116.267 40.143, ...)), ((116.278 40.150, ...)))">MULTIPOLYGON (((
             }
 
             function showCurrent() { 
-                clearAll(); 
                 if (currentTab === 'points') showPoints(); 
                 else if (currentTab === 'lines') showLines(); 
                 else if (currentTab === 'polygons') showPolygons(); 
             }
 
             function showAll() { 
-                clearAll(); 
                 showPoints(); 
                 showLines(); 
                 showPolygons(); 
@@ -640,104 +686,6 @@ MULTIPOLYGON(((116.267 40.143, ...)), ((116.278 40.150, ...)))">MULTIPOLYGON (((
                         showStatus('未能解析点数据', false);
                     }
                 } catch (e) { showStatus('解析点数据出错', false); }
-            }
-
-            function clearSearchMarkers() {
-                searchMarkers.forEach(m => map.remove(m));
-                searchMarkers = [];
-            }
-
-            function searchDestination() {
-                var keyword = document.getElementById('destination-input').value.trim();
-                if (!keyword) {
-                    showStatus('请输入目的地关键词', false);
-                    return;
-                }
-                AMap.plugin(['AMap.PlaceSearch'], function () {
-                    var placeSearch = new AMap.PlaceSearch({ city: '全国', pageSize: 8 });
-                    placeSearch.search(keyword, function (status, result) {
-                        if (status !== 'complete' || !result || !result.poiList || !result.poiList.pois.length) {
-                            showStatus('未找到目的地，请换个关键词', false);
-                            return;
-                        }
-                        clearSearchMarkers();
-                        var pois = result.poiList.pois;
-                        var markerList = [];
-                        pois.forEach((poi, index) => {
-                            if (!poi.location) return;
-                            var marker = new AMap.Marker({
-                                position: poi.location,
-                                title: poi.name,
-                                label: { content: (index + 1) + '. ' + poi.name, direction: 'top' }
-                            });
-                            markerList.push(marker);
-                            map.add(marker);
-                        });
-                        searchMarkers = markerList;
-                        if (searchMarkers.length > 0) {
-                            map.setFitView(searchMarkers);
-                            showStatus('已找到 ' + searchMarkers.length + ' 个目的地候选', true);
-                        } else {
-                            showStatus('找到结果但没有可用坐标', false);
-                        }
-                    });
-                });
-            }
-
-            function planRoute() {
-                var startText = document.getElementById('start-input').value.trim();
-                var endText = document.getElementById('end-input').value.trim();
-                if (!endText) {
-                    showStatus('请填写路线终点', false);
-                    return;
-                }
-
-                AMap.plugin(['AMap.Driving', 'AMap.Geocoder'], function () {
-                    if (!driving) {
-                        driving = new AMap.Driving({
-                            map: map,
-                            hideMarkers: false,
-                            policy: AMap.DrivingPolicy.LEAST_TIME
-                        });
-                    } else {
-                        driving.clear();
-                    }
-
-                    var geocoder = new AMap.Geocoder({ city: '全国' });
-                    function geocode(address) {
-                        return new Promise((resolve, reject) => {
-                            geocoder.getLocation(address, function (status, result) {
-                                if (status === 'complete' && result.geocodes && result.geocodes.length) {
-                                    resolve(result.geocodes[0].location);
-                                } else {
-                                    reject(new Error('地址解析失败: ' + address));
-                                }
-                            });
-                        });
-                    }
-
-                    var startPromise = startText ? geocode(startText) : new Promise((resolve, reject) => {
-                        map.plugin('AMap.Geolocation', function () {
-                            var geolocation = new AMap.Geolocation({ enableHighAccuracy: true, timeout: 10000 });
-                            geolocation.getCurrentPosition(function (status, result) {
-                                if (status === 'complete' && result && result.position) resolve(result.position);
-                                else reject(new Error('定位失败，请手动输入起点'));
-                            });
-                        });
-                    });
-
-                    Promise.all([startPromise, geocode(endText)]).then(function (positions) {
-                        driving.search(positions[0], positions[1], function (status, result) {
-                            if (status === 'complete' && result && result.routes && result.routes.length) {
-                                showStatus('路线规划成功', true);
-                            } else {
-                                showStatus('路线规划失败，请检查起终点', false);
-                            }
-                        });
-                    }).catch(function (err) {
-                        showStatus(err.message || '路线规划失败', false);
-                    });
-                });
             }
 
             // 线数据展示（支持 WKT/坐标串）
@@ -784,12 +732,14 @@ MULTIPOLYGON(((116.267 40.143, ...)), ((116.278 40.150, ...)))">MULTIPOLYGON (((
             // 多边形数据展示（支持 WKT/坐标串）
             function showPolygons() {
                 polygons.forEach(p => map.remove(p)); polygons = [];
+                clearPolygonDiagnostics();
                 var input = document.getElementById('polygon-input').value.trim();
                 if (!input) { showStatus('输入为空', false); return; }
 
                 // 预处理文本：去除换行，标准化空格
                 var cleanInput = input.replace(/[\r\n]+/g, ' ').replace(/\s+/g, ' ').toUpperCase();
                 var count = 0;
+                var intersectionCount = 0;
 
                 try {
                     // 解析坐标对的辅助函数 "x y, x y" -> [[x,y], [x,y]]
@@ -815,16 +765,7 @@ MULTIPOLYGON(((116.267 40.143, ...)), ((116.278 40.150, ...)))">MULTIPOLYGON (((
                                     var path = [];
                                     ringStr.forEach(r => path.push(parseRing(r)));
                                     
-                                    var polygon = new AMap.Polygon({
-                                        path: path,
-                                        strokeColor: '#FF6B6B',
-                                        strokeWeight: 3,
-                                        strokeOpacity: 0.8,
-                                        fillColor: '#FF6B6B',
-                                        fillOpacity: 0.35
-                                    });
-                                    map.add(polygon);
-                                    polygons.push(polygon);
+                                    intersectionCount += addPolygonWithDiagnostics(path);
                                     count++;
                                 }
                             });
@@ -835,44 +776,33 @@ MULTIPOLYGON(((116.267 40.143, ...)), ((116.278 40.150, ...)))">MULTIPOLYGON (((
                         if (ringStr) {
                             var path = [];
                             ringStr.forEach(r => path.push(parseRing(r)));
-                            var polygon = new AMap.Polygon({
-                                path: path,
-                                strokeColor: '#FF6B6B',
-                                strokeWeight: 3,
-                                strokeOpacity: 0.8,
-                                fillColor: '#FF6B6B',
-                                fillOpacity: 0.35
-                            });
-                            map.add(polygon); polygons.push(polygon);
+                            intersectionCount += addPolygonWithDiagnostics(path);
                             count++;
                         }
                     } else {
-                        // 坐标串格式：多个面可用换行或 ; 分隔，洞可用 | 分隔
-                        var polygonTexts = normalizeInputText(input).split(/\n+|;/).map(t => t.trim()).filter(Boolean);
-                        if (polygonTexts.length <= 1) polygonTexts = [input];
+                        // 坐标串格式：
+                        // 1) 单个面：x,y;x,y;...（支持你提供的长坐标串）
+                        // 2) 多个面：用换行分隔不同面
+                        // 3) 洞：同一面内用 | 分隔外环与内环
+                        var normalized = normalizeInputText(input);
+                        var polygonTexts = normalized.split(/\n+/).map(t => t.trim()).filter(Boolean);
+                        if (polygonTexts.length === 0) polygonTexts = [normalized];
 
                         polygonTexts.forEach(polyText => {
-                            var ringTexts = normalizeInputText(polyText).split('|').map(t => t.trim()).filter(Boolean);
+                            var ringTexts = polyText.split('|').map(t => t.trim()).filter(Boolean);
                             var path = ringTexts.map(parseRing).filter(ring => ring.length > 3);
                             if (path.length > 0) {
-                                var polygon = new AMap.Polygon({
-                                    path: path.length === 1 ? path[0] : path,
-                                    strokeColor: '#FF6B6B',
-                                    strokeWeight: 3,
-                                    strokeOpacity: 0.8,
-                                    fillColor: '#FF6B6B',
-                                    fillOpacity: 0.35
-                                });
-                                map.add(polygon);
-                                polygons.push(polygon);
+                                intersectionCount += addPolygonWithDiagnostics(path.length === 1 ? path[0] : path);
                                 count++;
                             }
                         });
                     }
 
                     if (count > 0) {
-                        showStatus(`成功绘制 ${count} 个地块`, true);
-                        map.setFitView(polygons);
+                        var message = `成功绘制 ${count} 个地块`;
+                        if (intersectionCount > 0) message += `，检测到 ${intersectionCount} 处自相交`;
+                        showStatus(message, true);
+                        map.setFitView(polygons.concat(polygonDiagnostics));
                     } else {
                         showStatus('未能解析多边形数据', false);
                     }
@@ -886,16 +816,13 @@ MULTIPOLYGON(((116.267 40.143, ...)), ((116.278 40.150, ...)))">MULTIPOLYGON (((
                 points.forEach(p => map.remove(p)); points = [];
                 lines.forEach(l => map.remove(l)); lines = [];
                 polygons.forEach(p => map.remove(p)); polygons = [];
-                clearSearchMarkers();
-                if (driving) driving.clear();
+                clearPolygonDiagnostics();
                 showStatus('已清除所有图形', true);
             }
 
             document.getElementById('show-current-btn').addEventListener('click', showCurrent);
             document.getElementById('show-all-btn').addEventListener('click', showAll);
             document.getElementById('clear-all-btn').addEventListener('click', clearAll);
-            document.getElementById('search-destination-btn').addEventListener('click', searchDestination);
-            document.getElementById('route-plan-btn').addEventListener('click', planRoute);
 
             setTimeout(function() { 
                 updateCurrentTabIndicator();
