@@ -539,14 +539,12 @@ MULTIPOLYGON(((116.267 40.143, ...)), ((116.278 40.150, ...)))">MULTIPOLYGON (((
             }
 
             function showCurrent() { 
-                clearAll(); 
                 if (currentTab === 'points') showPoints(); 
                 else if (currentTab === 'lines') showLines(); 
                 else if (currentTab === 'polygons') showPolygons(); 
             }
 
             function showAll() { 
-                clearAll(); 
                 showPoints(); 
                 showLines(); 
                 showPolygons(); 
