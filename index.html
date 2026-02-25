@@ -319,6 +319,47 @@
             color: #721c24;
             border-left: 4px solid #dc3545;
         }
+
+        .intersection-panel {
+            display: none;
+            border: 1px solid #ffd3cf;
+            background: #fff5f4;
+            border-radius: 8px;
+            padding: 10px 12px;
+            margin-top: 8px;
+            font-size: 12px;
+        }
+
+        .intersection-panel-title {
+            color: #b42318;
+            font-weight: 600;
+            margin-bottom: 6px;
+        }
+
+        .intersection-list {
+            list-style: none;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            max-height: 110px;
+            overflow-y: auto;
+        }
+
+        .intersection-link {
+            border: none;
+            background: transparent;
+            color: #0b63ce;
+            text-align: left;
+            cursor: pointer;
+            padding: 0;
+            font-size: 12px;
+        }
+
+        .intersection-link:hover {
+            text-decoration: underline;
+        }
         
         @media (max-width: 768px) {
             .control-panel {
@@ -414,6 +455,10 @@ MULTIPOLYGON(((116.267 40.143, ...)), ((116.278 40.150, ...)))">MULTIPOLYGON (((
             </div>
             
             <div class="status-message" id="status-message"></div>
+            <div class="intersection-panel" id="intersection-panel">
+                <div class="intersection-panel-title">⚠️ 检测到多边形自相交，点击可定位：</div>
+                <ul class="intersection-list" id="intersection-list"></ul>
+            </div>
             
             <div class="legend">
                 <div class="legend-title">图例说明</div>
@@ -448,7 +493,7 @@ MULTIPOLYGON(((116.267 40.143, ...)), ((116.278 40.150, ...)))">MULTIPOLYGON (((
                 viewMode: '3D'
             });
             
-            var points = [], lines = [], polygons = [], polygonDiagnostics = [], currentTab = 'polygons';
+            var points = [], lines = [], polygons = [], polygonDiagnostics = [], intersectionAlerts = [], currentTab = 'polygons';
 
             function normalizeInputText(text) {
                 return (text || '')
@@ -494,6 +539,42 @@ MULTIPOLYGON(((116.267 40.143, ...)), ((116.278 40.150, ...)))">MULTIPOLYGON (((
             function clearPolygonDiagnostics() {
                 polygonDiagnostics.forEach(item => map.remove(item));
                 polygonDiagnostics = [];
+                intersectionAlerts = [];
+                renderIntersectionAlerts([]);
+            }
+
+            function renderIntersectionAlerts(items) {
+                var panel = document.getElementById('intersection-panel');
+                var list = document.getElementById('intersection-list');
+                if (!panel || !list) return;
+
+                list.innerHTML = '';
+                if (!items || items.length === 0) {
+                    panel.style.display = 'none';
+                    return;
+                }
+
+                items.forEach((item, index) => {
+                    var li = document.createElement('li');
+                    var button = document.createElement('button');
+                    button.type = 'button';
+                    button.className = 'intersection-link';
+                    button.textContent = `第 ${index + 1} 处（${item.point[0].toFixed(6)}, ${item.point[1].toFixed(6)}）`;
+                    button.addEventListener('click', function () {
+                        map.setZoomAndCenter(Math.max(map.getZoom(), 17), item.point);
+                        showStatus(`已定位到第 ${index + 1} 处自相交`, true);
+                        if (item.marker) {
+                            item.marker.setOptions({ radius: 10, fillOpacity: 1 });
+                            setTimeout(function () {
+                                item.marker.setOptions({ radius: 7, fillOpacity: 0.9 });
+                            }, 700);
+                        }
+                    });
+                    li.appendChild(button);
+                    list.appendChild(li);
+                });
+
+                panel.style.display = 'block';
             }
 
             function segmentIntersection(a, b, c, d) {
@@ -538,17 +619,17 @@ MULTIPOLYGON(((116.267 40.143, ...)), ((116.278 40.150, ...)))">MULTIPOLYGON (((
                 var rings = (path.length > 0 && Array.isArray(path[0][0])) ? path : [path];
                 var segmentKeys = new Set();
                 var pointKeys = new Set();
-                var total = 0;
+                var alerts = [];
 
                 rings.forEach((ring, ringIndex) => {
                     var intersections = detectRingSelfIntersections(ring);
-                    total += intersections.length;
 
                     intersections.forEach(hit => {
                         var pKey = hit.point[0].toFixed(7) + ',' + hit.point[1].toFixed(7);
+                        var marker = null;
                         if (!pointKeys.has(pKey)) {
                             pointKeys.add(pKey);
-                            var marker = new AMap.CircleMarker({
+                            marker = new AMap.CircleMarker({
                                 center: hit.point,
                                 radius: 7,
                                 strokeColor: '#ff3b30',
@@ -560,6 +641,7 @@ MULTIPOLYGON(((116.267 40.143, ...)), ((116.278 40.150, ...)))">MULTIPOLYGON (((
                             });
                             map.add(marker);
                             polygonDiagnostics.push(marker);
+                            alerts.push({ point: hit.point, marker: marker });
                         }
 
                         [hit.segA, hit.segB].forEach(segIndex => {
@@ -580,7 +662,7 @@ MULTIPOLYGON(((116.267 40.143, ...)), ((116.278 40.150, ...)))">MULTIPOLYGON (((
                     });
                 });
 
-                return total;
+                return alerts;
             }
 
             function addPolygonWithDiagnostics(path) {
@@ -740,6 +822,7 @@ MULTIPOLYGON(((116.267 40.143, ...)), ((116.278 40.150, ...)))">MULTIPOLYGON (((
                 var cleanInput = input.replace(/[\r\n]+/g, ' ').replace(/\s+/g, ' ').toUpperCase();
                 var count = 0;
                 var intersectionCount = 0;
+                var intersections = [];
 
                 try {
                     // 解析坐标对的辅助函数 "x y, x y" -> [[x,y], [x,y]]
@@ -765,7 +848,7 @@ MULTIPOLYGON(((116.267 40.143, ...)), ((116.278 40.150, ...)))">MULTIPOLYGON (((
                                     var path = [];
                                     ringStr.forEach(r => path.push(parseRing(r)));
                                     
-                                    intersectionCount += addPolygonWithDiagnostics(path);
+                                    intersections = intersections.concat(addPolygonWithDiagnostics(path));
                                     count++;
                                 }
                             });
@@ -776,7 +859,7 @@ MULTIPOLYGON(((116.267 40.143, ...)), ((116.278 40.150, ...)))">MULTIPOLYGON (((
                         if (ringStr) {
                             var path = [];
                             ringStr.forEach(r => path.push(parseRing(r)));
-                            intersectionCount += addPolygonWithDiagnostics(path);
+                            intersections = intersections.concat(addPolygonWithDiagnostics(path));
                             count++;
                         }
                     } else {
@@ -792,7 +875,7 @@ MULTIPOLYGON(((116.267 40.143, ...)), ((116.278 40.150, ...)))">MULTIPOLYGON (((
                             var ringTexts = polyText.split('|').map(t => t.trim()).filter(Boolean);
                             var path = ringTexts.map(parseRing).filter(ring => ring.length > 3);
                             if (path.length > 0) {
-                                intersectionCount += addPolygonWithDiagnostics(path.length === 1 ? path[0] : path);
+                                intersections = intersections.concat(addPolygonWithDiagnostics(path.length === 1 ? path[0] : path));
                                 count++;
                             }
                         });
@@ -800,8 +883,11 @@ MULTIPOLYGON(((116.267 40.143, ...)), ((116.278 40.150, ...)))">MULTIPOLYGON (((
 
                     if (count > 0) {
                         var message = `成功绘制 ${count} 个地块`;
+                        intersectionCount = intersections.length;
                         if (intersectionCount > 0) message += `，检测到 ${intersectionCount} 处自相交`;
                         showStatus(message, true);
+                        renderIntersectionAlerts(intersections);
+                        intersectionAlerts = intersections;
                         map.setFitView(polygons.concat(polygonDiagnostics));
                     } else {
                         showStatus('未能解析多边形数据', false);
