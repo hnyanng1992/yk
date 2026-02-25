@@ -493,7 +493,7 @@ MULTIPOLYGON(((116.267 40.143, ...)), ((116.278 40.150, ...)))">MULTIPOLYGON (((
                 viewMode: '3D'
             });
             
-            var points = [], lines = [], polygons = [], polygonDiagnostics = [], intersectionAlerts = [], currentTab = 'polygons';
+            var points = [], lines = [], polygons = [], polygonDiagnostics = [], intersectionAlerts = [], currentTab = 'polygons'; // merge-resolved: keep diagnostics state
 
             function normalizeInputText(text) {
                 return (text || '')
@@ -906,7 +906,7 @@ MULTIPOLYGON(((116.267 40.143, ...)), ((116.278 40.150, ...)))">MULTIPOLYGON (((
                 points.forEach(p => map.remove(p)); points = [];
                 lines.forEach(l => map.remove(l)); lines = [];
                 polygons.forEach(p => map.remove(p)); polygons = [];
-                clearPolygonDiagnostics();
+                clearPolygonDiagnostics(); // merge-resolved: clear diagnostics overlays and alerts together
                 showStatus('已清除所有图形', true);
             }
 
