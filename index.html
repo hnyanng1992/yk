@@ -545,6 +545,10 @@ MULTIPOLYGON(((116.267 40.143, ...)), ((116.278 40.150, ...)))">MULTIPOLYGON (((
                 renderIntersectionAlerts([]);
             }
 
+            function formatCoord(coord) {
+                return `${coord[0].toFixed(6)}, ${coord[1].toFixed(6)}`;
+            }
+
             function renderIntersectionAlerts(items) {
                 var panel = document.getElementById('intersection-panel');
                 var title = document.getElementById('intersection-panel-title');
@@ -557,6 +561,7 @@ MULTIPOLYGON(((116.267 40.143, ...)), ((116.278 40.150, ...)))">MULTIPOLYGON (((
                     return;
                 }
 
+                title.textContent = `⚠️ 检测到 ${items.length} 处原始连线自相交，点击可定位异常线段：`;
                 title.textContent = `⚠️ 检测到 ${items.length} 处多边形自相交，点击可定位：`;
 
                 items.forEach((item, index) => {
@@ -564,6 +569,28 @@ MULTIPOLYGON(((116.267 40.143, ...)), ((116.278 40.150, ...)))">MULTIPOLYGON (((
                     var button = document.createElement('button');
                     button.type = 'button';
                     button.className = 'intersection-link';
+                    button.textContent = `第 ${index + 1} 处：线段[${item.segA + 1}] ${formatCoord(item.a1)} → ${formatCoord(item.a2)} 与 线段[${item.segB + 1}] ${formatCoord(item.b1)} → ${formatCoord(item.b2)}`;
+                    button.addEventListener('click', function () {
+                        var overlays = [];
+                        if (item.marker) overlays.push(item.marker);
+                        if (item.segAOverlay) overlays.push(item.segAOverlay);
+                        if (item.segBOverlay) overlays.push(item.segBOverlay);
+                        if (overlays.length > 0) {
+                            map.setFitView(overlays);
+                        } else {
+                            map.setZoomAndCenter(Math.max(map.getZoom(), 17), item.point);
+                        }
+
+                        showStatus(`已定位到第 ${index + 1} 处自相交（原始线段异常）`, true);
+
+                        [item.segAOverlay, item.segBOverlay].forEach(function (seg) {
+                            if (!seg) return;
+                            seg.setOptions({ strokeWeight: 8, strokeColor: '#d92d20' });
+                            setTimeout(function () {
+                                seg.setOptions({ strokeWeight: 6, strokeColor: '#ff3b30' });
+                            }, 700);
+                        });
+
                     button.textContent = `第 ${index + 1} 处（${item.point[0].toFixed(6)}, ${item.point[1].toFixed(6)}）`;
                     button.addEventListener('click', function () {
                         map.setZoomAndCenter(Math.max(map.getZoom(), 17), item.point);
@@ -614,6 +641,7 @@ MULTIPOLYGON(((116.267 40.143, ...)), ((116.278 40.150, ...)))">MULTIPOLYGON (((
                         var key = point[0].toFixed(7) + ',' + point[1].toFixed(7) + ':' + i + '-' + j;
                         if (seen.has(key)) continue;
                         seen.add(key);
+                        intersections.push({ point: point, segA: i, segB: j, a1: a1, a2: a2, b1: b1, b2: b2 });
                         intersections.push({ point: point, segA: i, segB: j });
                     }
                 }
@@ -622,6 +650,27 @@ MULTIPOLYGON(((116.267 40.143, ...)), ((116.278 40.150, ...)))">MULTIPOLYGON (((
 
             function highlightSelfIntersections(path) {
                 var rings = (path.length > 0 && Array.isArray(path[0][0])) ? path : [path];
+                var segmentOverlays = {};
+                var pointMarkers = {};
+                var alerts = [];
+
+                function getSegmentOverlay(ring, ringIndex, segIndex) {
+                    var key = ringIndex + ':' + segIndex;
+                    if (segmentOverlays[key]) return segmentOverlays[key];
+                    var segLine = new AMap.Polyline({
+                        path: [ring[segIndex], ring[segIndex + 1]],
+                        strokeColor: '#ff3b30',
+                        strokeWeight: 6,
+                        strokeOpacity: 0.9,
+                        lineJoin: 'round',
+                        zIndex: 70
+                    });
+                    map.add(segLine);
+                    polygonDiagnostics.push(segLine);
+                    segmentOverlays[key] = segLine;
+                    return segLine;
+                }
+
                 var segmentKeys = new Set();
                 var pointKeys = new Set();
                 var alerts = [];
@@ -630,6 +679,9 @@ MULTIPOLYGON(((116.267 40.143, ...)), ((116.278 40.150, ...)))">MULTIPOLYGON (((
                     var intersections = detectRingSelfIntersections(ring);
 
                     intersections.forEach(hit => {
+                        var pointKey = hit.point[0].toFixed(7) + ',' + hit.point[1].toFixed(7);
+                        var marker = pointMarkers[pointKey];
+                        if (!marker) {
                         var pKey = hit.point[0].toFixed(7) + ',' + hit.point[1].toFixed(7);
                         var marker = null;
                         if (!pointKeys.has(pKey)) {
@@ -646,6 +698,23 @@ MULTIPOLYGON(((116.267 40.143, ...)), ((116.278 40.150, ...)))">MULTIPOLYGON (((
                             });
                             map.add(marker);
                             polygonDiagnostics.push(marker);
+                            pointMarkers[pointKey] = marker;
+                        }
+
+                        var segAOverlay = getSegmentOverlay(ring, ringIndex, hit.segA);
+                        var segBOverlay = getSegmentOverlay(ring, ringIndex, hit.segB);
+
+                        alerts.push({
+                            point: hit.point,
+                            marker: marker,
+                            segA: hit.segA,
+                            segB: hit.segB,
+                            a1: hit.a1,
+                            a2: hit.a2,
+                            b1: hit.b1,
+                            b2: hit.b2,
+                            segAOverlay: segAOverlay,
+                            segBOverlay: segBOverlay
                             alerts.push({ point: hit.point, marker: marker });
                         }
 
