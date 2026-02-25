@@ -495,7 +495,6 @@ MULTIPOLYGON(((116.267 40.143, ...)), ((116.278 40.150, ...)))">MULTIPOLYGON (((
             });
             
             var points = [], lines = [], polygons = [], polygonDiagnostics = [], intersectionAlerts = [], currentTab = 'polygons'; // merge-resolved: keep diagnostics state
-            var points = [], lines = [], polygons = [], currentTab = 'polygons';
 
             function normalizeInputText(text) {
                 return (text || '')
@@ -561,15 +560,14 @@ MULTIPOLYGON(((116.267 40.143, ...)), ((116.278 40.150, ...)))">MULTIPOLYGON (((
                     return;
                 }
 
-                title.textContent = `⚠️ 检测到 ${items.length} 处原始连线自相交，点击可定位异常线段：`;
-                title.textContent = `⚠️ 检测到 ${items.length} 处多边形自相交，点击可定位：`;
+                title.textContent = `⚠️ 检测到 ${items.length} 处原始连线自相交（图面编号已标注），点击可定位异常线段：`;
 
                 items.forEach((item, index) => {
                     var li = document.createElement('li');
                     var button = document.createElement('button');
                     button.type = 'button';
                     button.className = 'intersection-link';
-                    button.textContent = `第 ${index + 1} 处：线段[${item.segA + 1}] ${formatCoord(item.a1)} → ${formatCoord(item.a2)} 与 线段[${item.segB + 1}] ${formatCoord(item.b1)} → ${formatCoord(item.b2)}`;
+                    button.textContent = `图面编号#${item.pointNo}：线段[${item.segA + 1}] ${formatCoord(item.a1)} → ${formatCoord(item.a2)} 与 线段[${item.segB + 1}] ${formatCoord(item.b1)} → ${formatCoord(item.b2)}`;
                     button.addEventListener('click', function () {
                         var overlays = [];
                         if (item.marker) overlays.push(item.marker);
@@ -591,10 +589,6 @@ MULTIPOLYGON(((116.267 40.143, ...)), ((116.278 40.150, ...)))">MULTIPOLYGON (((
                             }, 700);
                         });
 
-                    button.textContent = `第 ${index + 1} 处（${item.point[0].toFixed(6)}, ${item.point[1].toFixed(6)}）`;
-                    button.addEventListener('click', function () {
-                        map.setZoomAndCenter(Math.max(map.getZoom(), 17), item.point);
-                        showStatus(`已定位到第 ${index + 1} 处自相交`, true);
                         if (item.marker) {
                             item.marker.setOptions({ radius: 10, fillOpacity: 1 });
                             setTimeout(function () {
@@ -642,7 +636,6 @@ MULTIPOLYGON(((116.267 40.143, ...)), ((116.278 40.150, ...)))">MULTIPOLYGON (((
                         if (seen.has(key)) continue;
                         seen.add(key);
                         intersections.push({ point: point, segA: i, segB: j, a1: a1, a2: a2, b1: b1, b2: b2 });
-                        intersections.push({ point: point, segA: i, segB: j });
                     }
                 }
                 return intersections;
@@ -652,6 +645,8 @@ MULTIPOLYGON(((116.267 40.143, ...)), ((116.278 40.150, ...)))">MULTIPOLYGON (((
                 var rings = (path.length > 0 && Array.isArray(path[0][0])) ? path : [path];
                 var segmentOverlays = {};
                 var pointMarkers = {};
+                var pointLabels = {};
+                var pointCounter = 0;
                 var alerts = [];
 
                 function getSegmentOverlay(ring, ringIndex, segIndex) {
@@ -671,10 +666,6 @@ MULTIPOLYGON(((116.267 40.143, ...)), ((116.278 40.150, ...)))">MULTIPOLYGON (((
                     return segLine;
                 }
 
-                var segmentKeys = new Set();
-                var pointKeys = new Set();
-                var alerts = [];
-
                 rings.forEach((ring, ringIndex) => {
                     var intersections = detectRingSelfIntersections(ring);
 
@@ -682,10 +673,6 @@ MULTIPOLYGON(((116.267 40.143, ...)), ((116.278 40.150, ...)))">MULTIPOLYGON (((
                         var pointKey = hit.point[0].toFixed(7) + ',' + hit.point[1].toFixed(7);
                         var marker = pointMarkers[pointKey];
                         if (!marker) {
-                        var pKey = hit.point[0].toFixed(7) + ',' + hit.point[1].toFixed(7);
-                        var marker = null;
-                        if (!pointKeys.has(pKey)) {
-                            pointKeys.add(pKey);
                             marker = new AMap.CircleMarker({
                                 center: hit.point,
                                 radius: 7,
@@ -699,6 +686,17 @@ MULTIPOLYGON(((116.267 40.143, ...)), ((116.278 40.150, ...)))">MULTIPOLYGON (((
                             map.add(marker);
                             polygonDiagnostics.push(marker);
                             pointMarkers[pointKey] = marker;
+
+                            pointCounter += 1;
+                            var label = new AMap.Marker({
+                                position: hit.point,
+                                offset: new AMap.Pixel(10, -16),
+                                content: `<div style="background:#d92d20;color:#fff;border:2px solid #fff;border-radius:12px;padding:1px 7px;font-size:12px;font-weight:700;line-height:18px;box-shadow:0 2px 6px rgba(0,0,0,.35);">#${pointCounter}</div>`,
+                                zIndex: 90
+                            });
+                            map.add(label);
+                            polygonDiagnostics.push(label);
+                            pointLabels[pointKey] = { no: pointCounter, overlay: label };
                         }
 
                         var segAOverlay = getSegmentOverlay(ring, ringIndex, hit.segA);
@@ -714,24 +712,8 @@ MULTIPOLYGON(((116.267 40.143, ...)), ((116.278 40.150, ...)))">MULTIPOLYGON (((
                             b1: hit.b1,
                             b2: hit.b2,
                             segAOverlay: segAOverlay,
-                            segBOverlay: segBOverlay
-                            alerts.push({ point: hit.point, marker: marker });
-                        }
-
-                        [hit.segA, hit.segB].forEach(segIndex => {
-                            var sKey = ringIndex + ':' + segIndex;
-                            if (segmentKeys.has(sKey)) return;
-                            segmentKeys.add(sKey);
-                            var segLine = new AMap.Polyline({
-                                path: [ring[segIndex], ring[segIndex + 1]],
-                                strokeColor: '#ff3b30',
-                                strokeWeight: 6,
-                                strokeOpacity: 0.9,
-                                lineJoin: 'round',
-                                zIndex: 70
-                            });
-                            map.add(segLine);
-                            polygonDiagnostics.push(segLine);
+                            segBOverlay: segBOverlay,
+                            pointNo: pointLabels[pointKey] ? pointLabels[pointKey].no : '-'
                         });
                     });
                 });
