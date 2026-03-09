@@ -172,6 +172,65 @@
             transform: translateY(-2px);
             box-shadow: 0 4px 8px rgba(40, 167, 69, 0.3);
         }
+
+        .coord-picker-panel {
+            border: 1px solid #dbe7ff;
+            background: #f6f9ff;
+            border-radius: 8px;
+            padding: 10px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .coord-picker-actions {
+            display: flex;
+            gap: 8px;
+        }
+
+        .btn-warning {
+            background: #ff9f1a;
+            color: #fff;
+        }
+
+        .btn-warning:hover {
+            background: #f08c00;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 8px rgba(240, 140, 0, 0.28);
+        }
+
+        .btn-danger {
+            background: #dc3545;
+            color: #fff;
+        }
+
+        .btn-danger:hover {
+            background: #c82333;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 8px rgba(220, 53, 69, 0.28);
+        }
+
+        .coord-picker-actions button {
+            flex: 1;
+            padding: 9px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: 600;
+        }
+
+        .coord-output {
+            width: 100%;
+            border: 1px solid #cfd9ee;
+            border-radius: 6px;
+            padding: 8px;
+            font-size: 12px;
+            font-family: 'Consolas', 'Monaco', monospace;
+            background: #fff;
+            min-height: 56px;
+            resize: vertical;
+        }
         
         .tab-content {
             display: none;
@@ -412,6 +471,14 @@
                         <span>🗑️</span> 清除所有
                     </button>
                 </div>
+
+                <div class="coord-picker-panel">
+                    <div class="coord-picker-actions">
+                        <button class="btn-warning" id="toggle-pick-btn">📍 开启戳点拾取</button>
+                        <button class="btn-danger" id="copy-coord-btn">📋 复制坐标</button>
+                    </div>
+                    <textarea id="picked-coord-output" class="coord-output" readonly placeholder="点击“开启戳点拾取”后，在图面点击任意位置获取坐标"></textarea>
+                </div>
             </div>
             
             <!-- 点数据标签页 -->
@@ -494,7 +561,7 @@ MULTIPOLYGON(((116.267 40.143, ...)), ((116.278 40.150, ...)))">MULTIPOLYGON (((
                 viewMode: '3D'
             });
             
-            var points = [], lines = [], polygons = [], polygonDiagnostics = [], intersectionAlerts = [], currentTab = 'polygons'; // merge-resolved: keep diagnostics state
+            var points = [], lines = [], polygons = [], polygonDiagnostics = [], intersectionAlerts = [], pickedCoordMarker = null, pickMode = false, currentTab = 'polygons'; // merge-resolved: keep diagnostics state
 
             function normalizeInputText(text) {
                 return (text || '')
@@ -761,7 +828,58 @@ MULTIPOLYGON(((116.267 40.143, ...)), ((116.278 40.150, ...)))">MULTIPOLYGON (((
                 statusElement.style.display = 'block';
                 setTimeout(function() { statusElement.style.display = 'none'; }, 5000);
             }
+
+            function setPickMode(enabled) {
+                pickMode = enabled;
+                var btn = document.getElementById('toggle-pick-btn');
+                if (!btn) return;
+                btn.textContent = enabled ? '🛑 关闭戳点拾取' : '📍 开启戳点拾取';
+                btn.className = enabled ? 'btn-danger' : 'btn-warning';
+                showStatus(enabled ? '已开启戳点拾取：请在地图上点击取坐标' : '已关闭戳点拾取', true);
+            }
+
+            function setPickedCoord(coord) {
+                var output = document.getElementById('picked-coord-output');
+                if (output) output.value = coord[0].toFixed(6) + ',' + coord[1].toFixed(6);
+
+                if (pickedCoordMarker) map.remove(pickedCoordMarker);
+                pickedCoordMarker = new AMap.Marker({
+                    position: coord,
+                    content: '<div style="background:#1f6feb;color:#fff;border-radius:10px;padding:2px 6px;font-size:11px;">拾取点</div>',
+                    offset: new AMap.Pixel(0, -8),
+                    zIndex: 120
+                });
+                map.add(pickedCoordMarker);
+            }
+
+            function copyPickedCoord() {
+                var output = document.getElementById('picked-coord-output');
+                if (!output || !output.value) {
+                    showStatus('暂无可复制坐标，请先戳点拾取', false);
+                    return;
+                }
+
+                var text = output.value;
+                if (navigator.clipboard && navigator.clipboard.writeText) {
+                    navigator.clipboard.writeText(text).then(function () {
+                        showStatus('坐标已复制：' + text, true);
+                    }).catch(function () {
+                        output.select();
+                        document.execCommand('copy');
+                        showStatus('坐标已复制：' + text, true);
+                    });
+                } else {
+                    output.select();
+                    document.execCommand('copy');
+                    showStatus('坐标已复制：' + text, true);
+                }
+            }
             
+            map.on('click', function (e) {
+                if (!pickMode || !e || !e.lnglat) return;
+                setPickedCoord([e.lnglat.getLng(), e.lnglat.getLat()]);
+            });
+
             // 标签切换逻辑
             document.querySelectorAll('.tab').forEach(tab => {
                 tab.addEventListener('click', function() {
@@ -960,12 +1078,17 @@ MULTIPOLYGON(((116.267 40.143, ...)), ((116.278 40.150, ...)))">MULTIPOLYGON (((
                 lines.forEach(l => map.remove(l)); lines = [];
                 polygons.forEach(p => map.remove(p)); polygons = [];
                 clearPolygonDiagnostics(); // merge-resolved: clear diagnostics overlays and alerts together
+                if (pickedCoordMarker) { map.remove(pickedCoordMarker); pickedCoordMarker = null; }
+                var output = document.getElementById('picked-coord-output');
+                if (output) output.value = '';
                 showStatus('已清除所有图形', true);
             }
 
             document.getElementById('show-current-btn').addEventListener('click', showCurrent);
             document.getElementById('show-all-btn').addEventListener('click', showAll);
             document.getElementById('clear-all-btn').addEventListener('click', clearAll);
+            document.getElementById('toggle-pick-btn').addEventListener('click', function () { setPickMode(!pickMode); });
+            document.getElementById('copy-coord-btn').addEventListener('click', copyPickedCoord);
 
             setTimeout(function() { 
                 updateCurrentTabIndicator();
