@@ -69,10 +69,14 @@
             background: #f8fafc;
             color: #334155;
             border-radius: 6px;
-            padding: 6px 10px;
+            width: 32px;
+            height: 32px;
             font-size: 12px;
             font-weight: 600;
             cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
         }
 
         .tool-panel-toggle:hover {
@@ -657,7 +661,7 @@ MULTIPOLYGON(((116.267 40.143, ...)), ((116.278 40.150, ...)))">MULTIPOLYGON (((
     <div class="tool-panel collapsed" id="tool-panel">
         <div class="tool-panel-header">
             <div class="tool-panel-title">坐标拾取 / POI工具栏</div>
-            <button class="tool-panel-toggle" id="toggle-tool-panel-btn" type="button">🔧 展开</button>
+            <button class="tool-panel-toggle" id="toggle-tool-panel-btn" type="button" title="展开工具栏" aria-label="展开工具栏">⚙️</button>
         </div>
         <div class="tool-panel-body" id="tool-panel-body">
             <div class="coord-picker-panel">
@@ -1257,15 +1261,39 @@ MULTIPOLYGON(((116.267 40.143, ...)), ((116.278 40.150, ...)))">MULTIPOLYGON (((
                 showStatus('已清除所有图形', true);
             }
 
+            function openToolPanel() {
+                var panel = document.getElementById('tool-panel');
+                var toggleBtn = document.getElementById('toggle-tool-panel-btn');
+                if (!panel || !toggleBtn) return;
+                panel.classList.remove('collapsed');
+                toggleBtn.title = '收起工具栏';
+                toggleBtn.setAttribute('aria-label', '收起工具栏');
+            }
+
+            function toggleToolPanel() {
+                var panel = document.getElementById('tool-panel');
+                var toggleBtn = document.getElementById('toggle-tool-panel-btn');
+                if (!panel || !toggleBtn) return;
+                panel.classList.toggle('collapsed');
+                var collapsed = panel.classList.contains('collapsed');
+                toggleBtn.title = collapsed ? '展开工具栏' : '收起工具栏';
+                toggleBtn.setAttribute('aria-label', collapsed ? '展开工具栏' : '收起工具栏');
+            }
+
+            var contextMenu = new AMap.ContextMenu();
+            contextMenu.addItem('⚙️ 展开工具栏', function() {
+                openToolPanel();
+            }, 0);
+
+            map.on('rightclick', function(e) {
+                if (!e || !e.lnglat) return;
+                contextMenu.open(map, e.lnglat);
+            });
+
             document.getElementById('show-current-btn').addEventListener('click', showCurrent);
             document.getElementById('show-all-btn').addEventListener('click', showAll);
             document.getElementById('clear-all-btn').addEventListener('click', clearAll);
-            document.getElementById('toggle-tool-panel-btn').addEventListener('click', function () {
-                var panel = document.getElementById('tool-panel');
-                if (!panel) return;
-                panel.classList.toggle('collapsed');
-                this.textContent = panel.classList.contains('collapsed') ? '🔧 展开' : '📦 收起';
-            });
+            document.getElementById('toggle-tool-panel-btn').addEventListener('click', toggleToolPanel);
             document.getElementById('toggle-pick-btn').addEventListener('click', function () { setPickMode(!pickMode); });
             document.getElementById('copy-coord-btn').addEventListener('click', copyPickedCoord);
             document.getElementById('show-poi-btn').addEventListener('click', showPoiMarkers);
