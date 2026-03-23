@@ -805,16 +805,37 @@ MULTIPOLYGON(((116.267 40.143, ...)), ((116.278 40.150, ...)))">MULTIPOLYGON (((
             }
 
             function segmentIntersection(a, b, c, d) {
+                var EPS = 1e-10;
+
+                function cross(p1, p2, p3) {
+                    return (p2[0] - p1[0]) * (p3[1] - p1[1]) - (p2[1] - p1[1]) * (p3[0] - p1[0]);
+                }
+
+                function onSegment(p1, p2, q) {
+                    return q[0] >= Math.min(p1[0], p2[0]) - EPS && q[0] <= Math.max(p1[0], p2[0]) + EPS &&
+                           q[1] >= Math.min(p1[1], p2[1]) - EPS && q[1] <= Math.max(p1[1], p2[1]) + EPS;
+                }
+
                 var r = [b[0] - a[0], b[1] - a[1]];
                 var s = [d[0] - c[0], d[1] - c[1]];
                 var denominator = r[0] * s[1] - r[1] * s[0];
-                if (Math.abs(denominator) < 1e-12) return null;
-
                 var diff = [c[0] - a[0], c[1] - a[1]];
+
+                if (Math.abs(denominator) < EPS) {
+                    // 平行或共线，补充检测“共线重叠/端点落在线段上”的不合法情况
+                    if (Math.abs(cross(a, b, c)) > EPS || Math.abs(cross(a, b, d)) > EPS) return null;
+
+                    if (onSegment(a, b, c)) return [c[0], c[1]];
+                    if (onSegment(a, b, d)) return [d[0], d[1]];
+                    if (onSegment(c, d, a)) return [a[0], a[1]];
+                    if (onSegment(c, d, b)) return [b[0], b[1]];
+                    return null;
+                }
+
                 var t = (diff[0] * s[1] - diff[1] * s[0]) / denominator;
                 var u = (diff[0] * r[1] - diff[1] * r[0]) / denominator;
 
-                if (t < 0 || t > 1 || u < 0 || u > 1) return null;
+                if (t < -EPS || t > 1 + EPS || u < -EPS || u > 1 + EPS) return null;
                 return [a[0] + t * r[0], a[1] + t * r[1]];
             }
 
