@@ -836,6 +836,21 @@ MULTIPOLYGON(((116.267 40.143, ...)), ((116.278 40.150, ...)))">MULTIPOLYGON (((
                     return [px, py];
                 }
 
+                function projectPointToSegment(p, s1, s2) {
+                    var vx = s2[0] - s1[0], vy = s2[1] - s1[1];
+                    var len2 = vx * vx + vy * vy;
+                    if (len2 <= EPS * EPS) return { point: [s1[0], s1[1]], t: 0 };
+                    var t = ((p[0] - s1[0]) * vx + (p[1] - s1[1]) * vy) / len2;
+                    if (t < 0) t = 0;
+                    else if (t > 1) t = 1;
+                    return { point: [s1[0] + t * vx, s1[1] + t * vy], t: t };
+                }
+
+                function distance2(p1, p2) {
+                    var dx = p1[0] - p2[0], dy = p1[1] - p2[1];
+                    return dx * dx + dy * dy;
+                }
+
                 var o1 = orient(a, b, c);
                 var o2 = orient(a, b, d);
                 var o3 = orient(c, d, a);
@@ -855,6 +870,26 @@ MULTIPOLYGON(((116.267 40.143, ...)), ((116.278 40.150, ...)))">MULTIPOLYGON (((
                 var fallback = lineIntersection(a, b, c, d);
                 if (fallback && onSegment(a, b, fallback, 1e-8) && onSegment(c, d, fallback, 1e-8)) {
                     return fallback;
+                }
+
+                // 再兜底：极近距离“擦边/尖角”情形，按近邻交叉处理（用于修复漏检）
+                var nearTol = 5e-7;
+                var nearTol2 = nearTol * nearTol;
+                var c1 = projectPointToSegment(a, c, d);
+                var c2 = projectPointToSegment(b, c, d);
+                var c3 = projectPointToSegment(c, a, b);
+                var c4 = projectPointToSegment(d, a, b);
+
+                var candidates = [
+                    { p: a, q: c1.point, d2: distance2(a, c1.point), t: c1.t },
+                    { p: b, q: c2.point, d2: distance2(b, c2.point), t: c2.t },
+                    { p: c, q: c3.point, d2: distance2(c, c3.point), t: c3.t },
+                    { p: d, q: c4.point, d2: distance2(d, c4.point), t: c4.t }
+                ];
+                candidates.sort(function(m, n) { return m.d2 - n.d2; });
+                var best = candidates[0];
+                if (best && best.d2 <= nearTol2 && best.t > 0.02 && best.t < 0.98) {
+                    return [(best.p[0] + best.q[0]) / 2, (best.p[1] + best.q[1]) / 2];
                 }
 
                 return null;
