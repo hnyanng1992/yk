@@ -805,7 +805,7 @@ MULTIPOLYGON(((116.267 40.143, ...)), ((116.278 40.150, ...)))">MULTIPOLYGON (((
             }
 
             function segmentIntersection(a, b, c, d) {
-                var EPS = 1e-8;
+                var EPS = 1e-10;
 
                 function cross(p1, p2, p3) {
                     return (p2[0] - p1[0]) * (p3[1] - p1[1]) - (p2[1] - p1[1]) * (p3[0] - p1[0]);
@@ -868,7 +868,7 @@ MULTIPOLYGON(((116.267 40.143, ...)), ((116.278 40.150, ...)))">MULTIPOLYGON (((
                         var point = segmentIntersection(a1, a2, b1, b2);
                         if (!point) continue;
 
-                        var key = point[0].toFixed(7) + ',' + point[1].toFixed(7) + ':' + i + '-' + j;
+                        var key = point[0].toFixed(10) + ',' + point[1].toFixed(10) + ':' + i + '-' + j;
                         if (seen.has(key)) continue;
                         seen.add(key);
                         intersections.push({ point: point, segA: i, segB: j, a1: a1, a2: a2, b1: b1, b2: b2 });
@@ -878,7 +878,7 @@ MULTIPOLYGON(((116.267 40.143, ...)), ((116.278 40.150, ...)))">MULTIPOLYGON (((
                 // 额外检测：非相邻重复顶点（常见于自相交/回折导致的非法 AOI）
                 var vertexBucket = {};
                 for (var k = 0; k < ring.length - 1; k++) {
-                    var vKey = ring[k][0].toFixed(7) + ',' + ring[k][1].toFixed(7);
+                    var vKey = ring[k][0].toFixed(10) + ',' + ring[k][1].toFixed(10);
                     if (!vertexBucket[vKey]) vertexBucket[vKey] = [];
                     vertexBucket[vKey].push(k);
                 }
