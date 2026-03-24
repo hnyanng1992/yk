@@ -817,9 +817,10 @@ MULTIPOLYGON(((116.267 40.143, ...)), ((116.278 40.150, ...)))">MULTIPOLYGON (((
                     return v > 0 ? 1 : -1;
                 }
 
-                function onSegment(p1, p2, q) {
-                    return q[0] >= Math.min(p1[0], p2[0]) - EPS && q[0] <= Math.max(p1[0], p2[0]) + EPS &&
-                           q[1] >= Math.min(p1[1], p2[1]) - EPS && q[1] <= Math.max(p1[1], p2[1]) + EPS;
+                function onSegment(p1, p2, q, tol) {
+                    var T = (typeof tol === 'number') ? tol : EPS;
+                    return q[0] >= Math.min(p1[0], p2[0]) - T && q[0] <= Math.max(p1[0], p2[0]) + T &&
+                           q[1] >= Math.min(p1[1], p2[1]) - T && q[1] <= Math.max(p1[1], p2[1]) + T;
                 }
 
                 function lineIntersection(p1, p2, p3, p4) {
@@ -848,6 +849,12 @@ MULTIPOLYGON(((116.267 40.143, ...)), ((116.278 40.150, ...)))">MULTIPOLYGON (((
                 if (o1 !== o2 && o3 !== o4) {
                     var pt = lineIntersection(a, b, c, d);
                     if (pt) return pt;
+                }
+
+                // 兜底：对“几乎相交”的数值情况再做一次容差判断，避免漏检尖角自相交
+                var fallback = lineIntersection(a, b, c, d);
+                if (fallback && onSegment(a, b, fallback, 1e-8) && onSegment(c, d, fallback, 1e-8)) {
+                    return fallback;
                 }
 
                 return null;
