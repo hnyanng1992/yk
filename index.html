@@ -805,10 +805,16 @@ MULTIPOLYGON(((116.267 40.143, ...)), ((116.278 40.150, ...)))">MULTIPOLYGON (((
             }
 
             function segmentIntersection(a, b, c, d) {
-                var EPS = 1e-10;
+                var EPS = 1e-8;
 
                 function cross(p1, p2, p3) {
                     return (p2[0] - p1[0]) * (p3[1] - p1[1]) - (p2[1] - p1[1]) * (p3[0] - p1[0]);
+                }
+
+                function orient(p1, p2, p3) {
+                    var v = cross(p1, p2, p3);
+                    if (Math.abs(v) <= EPS) return 0;
+                    return v > 0 ? 1 : -1;
                 }
 
                 function onSegment(p1, p2, q) {
@@ -816,27 +822,35 @@ MULTIPOLYGON(((116.267 40.143, ...)), ((116.278 40.150, ...)))">MULTIPOLYGON (((
                            q[1] >= Math.min(p1[1], p2[1]) - EPS && q[1] <= Math.max(p1[1], p2[1]) + EPS;
                 }
 
-                var r = [b[0] - a[0], b[1] - a[1]];
-                var s = [d[0] - c[0], d[1] - c[1]];
-                var denominator = r[0] * s[1] - r[1] * s[0];
-                var diff = [c[0] - a[0], c[1] - a[1]];
+                function lineIntersection(p1, p2, p3, p4) {
+                    var x1 = p1[0], y1 = p1[1], x2 = p2[0], y2 = p2[1];
+                    var x3 = p3[0], y3 = p3[1], x4 = p4[0], y4 = p4[1];
+                    var den = (x1 - x2) * (y3 - y4) - (y1 - y2) * (x3 - x4);
+                    if (Math.abs(den) <= EPS) return null;
 
-                if (Math.abs(denominator) < EPS) {
-                    // 平行或共线，补充检测“共线重叠/端点落在线段上”的不合法情况
-                    if (Math.abs(cross(a, b, c)) > EPS || Math.abs(cross(a, b, d)) > EPS) return null;
-
-                    if (onSegment(a, b, c)) return [c[0], c[1]];
-                    if (onSegment(a, b, d)) return [d[0], d[1]];
-                    if (onSegment(c, d, a)) return [a[0], a[1]];
-                    if (onSegment(c, d, b)) return [b[0], b[1]];
-                    return null;
+                    var det1 = x1 * y2 - y1 * x2;
+                    var det2 = x3 * y4 - y3 * x4;
+                    var px = (det1 * (x3 - x4) - (x1 - x2) * det2) / den;
+                    var py = (det1 * (y3 - y4) - (y1 - y2) * det2) / den;
+                    return [px, py];
                 }
 
-                var t = (diff[0] * s[1] - diff[1] * s[0]) / denominator;
-                var u = (diff[0] * r[1] - diff[1] * r[0]) / denominator;
+                var o1 = orient(a, b, c);
+                var o2 = orient(a, b, d);
+                var o3 = orient(c, d, a);
+                var o4 = orient(c, d, b);
 
-                if (t < -EPS || t > 1 + EPS || u < -EPS || u > 1 + EPS) return null;
-                return [a[0] + t * r[0], a[1] + t * r[1]];
+                if (o1 === 0 && onSegment(a, b, c)) return [c[0], c[1]];
+                if (o2 === 0 && onSegment(a, b, d)) return [d[0], d[1]];
+                if (o3 === 0 && onSegment(c, d, a)) return [a[0], a[1]];
+                if (o4 === 0 && onSegment(c, d, b)) return [b[0], b[1]];
+
+                if (o1 !== o2 && o3 !== o4) {
+                    var pt = lineIntersection(a, b, c, d);
+                    if (pt) return pt;
+                }
+
+                return null;
             }
 
             function detectRingSelfIntersections(ring) {
@@ -860,6 +874,45 @@ MULTIPOLYGON(((116.267 40.143, ...)), ((116.278 40.150, ...)))">MULTIPOLYGON (((
                         intersections.push({ point: point, segA: i, segB: j, a1: a1, a2: a2, b1: b1, b2: b2 });
                     }
                 }
+
+                // 额外检测：非相邻重复顶点（常见于自相交/回折导致的非法 AOI）
+                var vertexBucket = {};
+                for (var k = 0; k < ring.length - 1; k++) {
+                    var vKey = ring[k][0].toFixed(7) + ',' + ring[k][1].toFixed(7);
+                    if (!vertexBucket[vKey]) vertexBucket[vKey] = [];
+                    vertexBucket[vKey].push(k);
+                }
+
+                Object.keys(vertexBucket).forEach(function(vKey) {
+                    var indexes = vertexBucket[vKey];
+                    if (indexes.length < 2) return;
+
+                    for (var x = 0; x < indexes.length; x++) {
+                        for (var y = x + 1; y < indexes.length; y++) {
+                            var i = indexes[x], j = indexes[y];
+                            if (Math.abs(i - j) <= 1) continue;
+                            if (i === 0 && j === ring.length - 2) continue;
+
+                            var dupKey = vKey + ':dup:' + i + '-' + j;
+                            if (seen.has(dupKey)) continue;
+                            seen.add(dupKey);
+
+                            var a1 = ring[i], a2 = ring[i + 1];
+                            var b1 = ring[j], b2 = ring[j + 1];
+                            intersections.push({
+                                point: ring[i],
+                                segA: i,
+                                segB: j,
+                                a1: a1,
+                                a2: a2,
+                                b1: b1,
+                                b2: b2,
+                                isDuplicateVertex: true
+                            });
+                        }
+                    }
+                });
+
                 return intersections;
             }
 
