@@ -182,6 +182,23 @@
             flex-direction: column;
             gap: 12px;
         }
+
+        .validation-toggle {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 10px;
+            border: 1px solid #e6ebf2;
+            border-radius: 6px;
+            background: #f8fafc;
+            font-size: 13px;
+            color: #334155;
+        }
+
+        .validation-toggle input {
+            width: 16px;
+            height: 16px;
+        }
         
         .main-button-group {
             display: flex;
@@ -587,6 +604,10 @@
                         <span>🗑️</span> 清除所有
                     </button>
                 </div>
+                <label class="validation-toggle" for="polygon-validation-toggle">
+                    <input type="checkbox" id="polygon-validation-toggle">
+                    <span>开启多边形合法性检测（默认关闭）</span>
+                </label>
             </div>
             
             <!-- 点数据标签页 -->
@@ -1051,6 +1072,25 @@ MULTIPOLYGON(((116.267 40.143, ...)), ((116.278 40.150, ...)))">MULTIPOLYGON (((
                 polygons.push(polygon);
                 return highlightSelfIntersections(path);
             }
+
+            function addPolygon(path) {
+                var polygon = new AMap.Polygon({
+                    path: path,
+                    strokeColor: '#FF6B6B',
+                    strokeWeight: 3,
+                    strokeOpacity: 0.8,
+                    fillColor: '#FF6B6B',
+                    fillOpacity: 0.35
+                });
+                map.add(polygon);
+                polygons.push(polygon);
+                return polygon;
+            }
+
+            function isPolygonValidationEnabled() {
+                var toggle = document.getElementById('polygon-validation-toggle');
+                return !!(toggle && toggle.checked);
+            }
             
             function updateFormatIndicator(type) {
                 var inputElement = document.getElementById(type === 'polygons' ? 'polygon-input' : type + '-input');
@@ -1281,6 +1321,7 @@ MULTIPOLYGON(((116.267 40.143, ...)), ((116.278 40.150, ...)))">MULTIPOLYGON (((
             function showPolygons() {
                 polygons.forEach(p => map.remove(p)); polygons = [];
                 clearPolygonDiagnostics();
+                var validationEnabled = isPolygonValidationEnabled();
                 var input = document.getElementById('polygon-input').value.trim();
                 if (!input) { showStatus('输入为空', false); return; }
 
@@ -1314,7 +1355,8 @@ MULTIPOLYGON(((116.267 40.143, ...)), ((116.278 40.150, ...)))">MULTIPOLYGON (((
                                     var path = [];
                                     ringStr.forEach(r => path.push(parseRing(r)));
                                     
-                                    intersections = intersections.concat(addPolygonWithDiagnostics(path));
+                                    if (validationEnabled) intersections = intersections.concat(addPolygonWithDiagnostics(path));
+                                    else addPolygon(path);
                                     count++;
                                 }
                             });
@@ -1325,7 +1367,8 @@ MULTIPOLYGON(((116.267 40.143, ...)), ((116.278 40.150, ...)))">MULTIPOLYGON (((
                         if (ringStr) {
                             var path = [];
                             ringStr.forEach(r => path.push(parseRing(r)));
-                            intersections = intersections.concat(addPolygonWithDiagnostics(path));
+                            if (validationEnabled) intersections = intersections.concat(addPolygonWithDiagnostics(path));
+                            else addPolygon(path);
                             count++;
                         }
                     } else {
@@ -1341,7 +1384,9 @@ MULTIPOLYGON(((116.267 40.143, ...)), ((116.278 40.150, ...)))">MULTIPOLYGON (((
                             var ringTexts = polyText.split('|').map(t => t.trim()).filter(Boolean);
                             var path = ringTexts.map(parseRing).filter(ring => ring.length > 3);
                             if (path.length > 0) {
-                                intersections = intersections.concat(addPolygonWithDiagnostics(path.length === 1 ? path[0] : path));
+                                var polygonPath = path.length === 1 ? path[0] : path;
+                                if (validationEnabled) intersections = intersections.concat(addPolygonWithDiagnostics(polygonPath));
+                                else addPolygon(polygonPath);
                                 count++;
                             }
                         });
@@ -1349,13 +1394,23 @@ MULTIPOLYGON(((116.267 40.143, ...)), ((116.278 40.150, ...)))">MULTIPOLYGON (((
 
                     if (count > 0) {
                         var message = `成功绘制 ${count} 个地块`;
-                        intersectionCount = intersections.length;
-                        if (intersectionCount > 0) message += `，检测到 ${intersectionCount} 处自相交`;
-                        else message += '，未检测到自相交';
+                        if (validationEnabled) {
+                            intersectionCount = intersections.length;
+                            if (intersectionCount > 0) message += `，检测到 ${intersectionCount} 处自相交`;
+                            else message += '，未检测到自相交';
+                        } else {
+                            message += '（未开启合法性检测）';
+                        }
                         showStatus(message, true);
-                        renderIntersectionAlerts(intersections);
-                        intersectionAlerts = intersections;
-                        map.setFitView(polygons.concat(polygonDiagnostics));
+                        if (validationEnabled) {
+                            renderIntersectionAlerts(intersections);
+                            intersectionAlerts = intersections;
+                            map.setFitView(polygons.concat(polygonDiagnostics));
+                        } else {
+                            renderIntersectionAlerts([]);
+                            intersectionAlerts = [];
+                            map.setFitView(polygons);
+                        }
                     } else {
                         showStatus('未能解析多边形数据', false);
                     }
