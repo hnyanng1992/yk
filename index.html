@@ -136,8 +136,7 @@
                 <div class="legend-title">图例说明</div>
                 <div class="legend-item"><div class="legend-point legend-point-color"></div><span>点数据</span></div>
                 <div class="legend-item"><div class="legend-color legend-line"></div><span>线数据</span></div>
-                <div class="legend-item"><div class="legend-color legend-polygon"></div><span>多边形主体</span></div>
-                <div class="legend-item"><div class="legend-color legend-exclave"></div><span>飞地 / 独立块（橙）</span></div>
+                <div class="legend-item"><div class="legend-color legend-polygon"></div><span>多边形（飞地与主体同色）</span></div>
                 <div class="legend-item"><div class="legend-color" style="background-color:#ff3b30;height:6px;"></div><span>自相交高亮</span></div>
             </div>
             <div class="intersection-panel" id="intersection-panel">
@@ -285,15 +284,17 @@ document.addEventListener('DOMContentLoaded', function () {
 
     function parseCoordinatePolygonInput(text) {
         var blocks = splitPolygonBlocks(text);
-        var polygonPaths = [];
+        var polygonGroups = [];
         blocks.forEach(function (block) {
             var ringTexts = block.split('|').map(function (t) { return t.trim(); }).filter(Boolean);
             var rings = ringTexts.map(function (rt) {
                 return normalizePolygonRing(extractCoordinatePairs(rt));
             }).filter(function (ring) { return ring.length > 3; });
-            groupRingsIntoPolygons(rings).forEach(function (path) { polygonPaths.push(path); });
+            var paths = [];
+            groupRingsIntoPolygons(rings).forEach(function (path) { paths.push(path); });
+            if (paths.length) polygonGroups.push(paths);
         });
-        return polygonPaths;
+        return polygonGroups;
     }
 
     function tryExtractFromJson(input) {
@@ -591,23 +592,25 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     function parseWktPolygons(cleanInput) {
-        var paths = [];
+        var polygonGroups = [];
         function parseRing(str) { return normalizePolygonRing(extractCoordinatePairs(str)); }
         if (cleanInput.indexOf('MULTIPOLYGON') >= 0) {
             var inner = cleanInput.substring(cleanInput.indexOf('((') + 1, cleanInput.lastIndexOf('))') + 2);
             var subPolys = inner.match(/\(\([^\(]+\)\)/g) || [];
+            var paths = [];
             subPolys.forEach(function (polyStr) {
                 var ringStr = polyStr.match(/\([^)]+\)/g) || [];
                 if (!ringStr.length) return;
                 var path = ringStr.map(parseRing);
                 paths.push(path.length === 1 ? path[0] : path);
             });
+            if (paths.length) polygonGroups.push(paths);
         } else if (cleanInput.indexOf('POLYGON') >= 0) {
             var ringStr = cleanInput.match(/\([^)]+\)/g) || [];
             var path = ringStr.map(parseRing);
-            if (path.length) paths.push(path.length === 1 ? path[0] : path);
+            if (path.length) polygonGroups.push([path.length === 1 ? path[0] : path]);
         }
-        return paths;
+        return polygonGroups;
     }
 
     function showPolygons() {
@@ -622,23 +625,25 @@ document.addEventListener('DOMContentLoaded', function () {
         var count = 0, exclaveCount = 0, intersections = [];
 
         try {
-            var polygonPaths = [];
+            var polygonGroups = [];
             if (cleanInput.indexOf('MULTIPOLYGON') >= 0 || cleanInput.indexOf('POLYGON') >= 0) {
-                polygonPaths = parseWktPolygons(cleanInput);
+                polygonGroups = parseWktPolygons(cleanInput);
             } else {
-                polygonPaths = parseCoordinatePolygonInput(input);
+                polygonGroups = parseCoordinatePolygonInput(input);
             }
 
-            polygonPaths.forEach(function (polygonPath, idx) {
-                if (validationEnabled) intersections = intersections.concat(addPolygonWithDiagnostics(polygonPath, idx));
-                else addPolygon(polygonPath, idx);
-                count += 1;
-                if (idx > 0) exclaveCount += 1;
+            polygonGroups.forEach(function (groupPaths, groupIdx) {
+                groupPaths.forEach(function (polygonPath, pathIdx) {
+                    if (validationEnabled) intersections = intersections.concat(addPolygonWithDiagnostics(polygonPath, groupIdx));
+                    else addPolygon(polygonPath, groupIdx);
+                    count += 1;
+                    if (pathIdx > 0) exclaveCount += 1;
+                });
             });
 
             if (count > 0) {
                 var message = '成功绘制 ' + count + ' 个地块';
-                if (exclaveCount > 0) message += '（含 ' + exclaveCount + ' 块飞地/独立区域，橙/蓝等分色）';
+                if (exclaveCount > 0) message += '（含 ' + exclaveCount + ' 块飞地，与主体同色）';
                 if (validationEnabled) {
                     if (intersections.length) message += '，检测到 ' + intersections.length + ' 处自相交';
                     else message += '，未检测到自相交';
