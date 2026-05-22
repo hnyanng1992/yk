@@ -6,679 +6,146 @@
     <title>几何数据展示工具</title>
     <link rel="stylesheet" href="https://a.amap.com/jsapi_demos/static/demo-center/css/demo-center.css" />
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-        
-        html, body, #container {
-            width: 100%;
-            height: 100%;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            overflow: hidden;
-        }
-        
-        .control-panel {
-            position: absolute;
-            top: 20px;
-            left: 20px;
-            width: 420px;
-            background: white;
-            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
-            border-radius: 12px;
-            z-index: 10;
-            max-height: 95vh;
-            overflow-y: auto;
-            display: flex;
-            flex-direction: column;
-        }
-
-        .tool-panel {
-            position: absolute;
-            top: 20px;
-            right: 20px;
-            width: 360px;
-            background: white;
-            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.12);
-            border-radius: 12px;
-            z-index: 10;
-            max-height: 95vh;
-            overflow-y: auto;
-            padding: 14px;
-            display: flex;
-            flex-direction: column;
-            gap: 12px;
-        }
-
-        .tool-panel-title {
-            font-size: 14px;
-            font-weight: 700;
-            color: #2f3d4a;
-        }
-
-        .tool-panel-header {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            gap: 8px;
-        }
-
-        .tool-panel-toggle {
-            border: 1px solid #d4dbe6;
-            background: #f8fafc;
-            color: #334155;
-            border-radius: 6px;
-            width: 32px;
-            height: 32px;
-            font-size: 12px;
-            font-weight: 600;
-            cursor: pointer;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-        }
-
-        .tool-panel-toggle:hover {
-            background: #eef3f8;
-        }
-
-        .tool-panel-body {
-            display: flex;
-            flex-direction: column;
-            gap: 12px;
-        }
-
-        .tool-panel.collapsed {
-            width: 220px;
-            max-height: none;
-        }
-
-        .tool-panel.collapsed .tool-panel-body {
-            display: none;
-        }
-        
-        .panel-header {
-            background: linear-gradient(135deg, #3388FF, #4A90E2);
-            color: white;
-            padding: 18px 20px;
-            border-radius: 12px 12px 0 0;
-            margin: 0;
-            position: sticky;
-            top: 0;
-            z-index: 11;
-            flex-shrink: 0;
-        }
-        
-        .panel-header h3 {
-            margin: 0;
-            font-size: 20px;
-            text-align: center;
-            font-weight: 600;
-            letter-spacing: 0.5px;
-        }
-        
-        .panel-content {
-            padding: 20px;
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-            gap: 16px;
-        }
-        
-        .tabs {
-            display: flex;
-            border-bottom: 1px solid #eaeaea;
-            margin-bottom: 0;
-            background: white;
-            z-index: 10;
-            flex-shrink: 0;
-            border-radius: 8px 8px 0 0;
-            overflow: hidden;
-        }
-        
-        .tab {
-            flex: 1;
-            padding: 14px 8px;
-            text-align: center;
-            cursor: pointer;
-            border-bottom: 3px solid transparent;
-            transition: all 0.3s ease;
-            font-size: 15px;
-            font-weight: 500;
-            color: #666;
-        }
-        
-        .tab.active {
-            border-bottom: 3px solid #3388FF;
-            color: #3388FF;
-            background-color: #f8fbff;
-        }
-        
-        .current-tab-indicator {
-            background: #e7f3ff;
-            padding: 12px 16px;
-            border-radius: 8px;
-            margin: 0;
-            font-size: 14px;
-            border-left: 4px solid #3388FF;
-            flex-shrink: 0;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-        
-        .current-tab-indicator::before {
-            content: "📍";
-            font-size: 16px;
-        }
-        
-        .action-buttons {
-            background: white;
-            padding: 0 0 12px 0;
-            margin: 0;
-            flex-shrink: 0;
-            display: flex;
-            flex-direction: column;
-            gap: 12px;
-        }
-
-        .validation-toggle {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            padding: 8px 10px;
-            border: 1px solid #e6ebf2;
-            border-radius: 6px;
-            background: #f8fafc;
-            font-size: 13px;
-            color: #334155;
-        }
-
-        .validation-toggle input {
-            width: 16px;
-            height: 16px;
-        }
-        
-        .main-button-group {
-            display: flex;
-            gap: 10px;
-            margin: 0;
-        }
-        
-        .main-button-group button {
-            flex: 1;
-            padding: 12px;
-            border: none;
-            border-radius: 6px;
-            cursor: pointer;
-            font-weight: 600;
-            transition: all 0.3s;
-            font-size: 14px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 6px;
-        }
-
-        .btn-primary {
-            background: #3388FF;
-            color: white;
-        }
-        
-        .btn-primary:hover {
-            background: #297acc;
-            transform: translateY(-2px);
-            box-shadow: 0 4px 8px rgba(51, 136, 255, 0.3);
-        }
-        
-        .btn-secondary {
-            background: #6c757d;
-            color: white;
-        }
-        
-        .btn-secondary:hover {
-            background: #5a6268;
-            transform: translateY(-2px);
-            box-shadow: 0 4px 8px rgba(108, 117, 125, 0.3);
-        }
-        
-        .btn-success {
-            background: #28a745;
-            color: white;
-        }
-        
-        .btn-success:hover {
-            background: #218838;
-            transform: translateY(-2px);
-            box-shadow: 0 4px 8px rgba(40, 167, 69, 0.3);
-        }
-
-        .coord-picker-panel {
-            border: 1px solid #dbe7ff;
-            background: #f6f9ff;
-            border-radius: 8px;
-            padding: 10px;
-            display: flex;
-            flex-direction: column;
-            gap: 8px;
-        }
-
-        .coord-picker-actions {
-            display: flex;
-            gap: 8px;
-        }
-
-        .btn-warning {
-            background: #ff9f1a;
-            color: #fff;
-        }
-
-        .btn-warning:hover {
-            background: #f08c00;
-            transform: translateY(-1px);
-            box-shadow: 0 4px 8px rgba(240, 140, 0, 0.28);
-        }
-
-        .btn-danger {
-            background: #dc3545;
-            color: #fff;
-        }
-
-        .btn-danger:hover {
-            background: #c82333;
-            transform: translateY(-1px);
-            box-shadow: 0 4px 8px rgba(220, 53, 69, 0.28);
-        }
-
-        .coord-picker-actions button {
-            flex: 1;
-            padding: 9px;
-            border: none;
-            border-radius: 6px;
-            cursor: pointer;
-            font-size: 13px;
-            font-weight: 600;
-        }
-
-        .coord-output {
-            width: 100%;
-            border: 1px solid #cfd9ee;
-            border-radius: 6px;
-            padding: 8px;
-            font-size: 12px;
-            font-family: 'Consolas', 'Monaco', monospace;
-            background: #fff;
-            min-height: 56px;
-            resize: vertical;
-        }
-
-
-        .poi-panel {
-            border: 1px solid #d8eee0;
-            background: #f4fbf7;
-            border-radius: 8px;
-            padding: 10px;
-            display: flex;
-            flex-direction: column;
-            gap: 8px;
-        }
-
-        .poi-panel-title {
-            font-size: 12px;
-            color: #2f6b45;
-            font-weight: 600;
-        }
-
-        .poi-input {
-            width: 100%;
-            border: 1px solid #cfe3d7;
-            border-radius: 6px;
-            padding: 8px;
-            font-size: 12px;
-            font-family: 'Consolas', 'Monaco', monospace;
-            background: #fff;
-            min-height: 92px;
-            resize: vertical;
-        }
-
-        .poi-actions {
-            display: flex;
-            gap: 8px;
-        }
-
-        .poi-actions button {
-            flex: 1;
-            padding: 9px;
-            border: none;
-            border-radius: 6px;
-            cursor: pointer;
-            font-size: 13px;
-            font-weight: 600;
-        }
-        
-        .tab-content {
-            display: none;
-            flex: 1;
-            flex-direction: column;
-            gap: 12px;
-        }
-        
-        .tab-content.active {
-            display: flex;
-        }
-        
-        .format-indicator {
-            padding: 10px 14px;
-            background: #f8f9fa;
-            border-radius: 6px;
-            font-size: 13px;
-            border-left: 4px solid #28a745;
-            flex-shrink: 0;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-        
-        .format-indicator::before {
-            content: "📋";
-        }
-        
-        .format-indicator.wkt {
-            border-left-color: #3388FF;
-        }
-        
-        .format-indicator.coords {
-            border-left-color: #28a745;
-        }
-        
-        .input-item {
-            display: flex;
-            flex-direction: column;
-            flex: 1;
-            min-height: 0;
-        }
-        
-        .input-item textarea {
-            width: 100%;
-            flex: 1;
-            min-height: 320px;
-            margin: 0;
-            padding: 16px;
-            border: 1px solid #ddd;
-            border-radius: 8px;
-            resize: vertical;
-            font-family: 'Consolas', 'Monaco', monospace;
-            font-size: 14px;
-            box-sizing: border-box;
-            line-height: 1.6;
-            transition: border 0.3s;
-        }
-        
-        .input-item textarea:focus {
-            border-color: #3388FF;
-            outline: none;
-            box-shadow: 0 0 0 2px rgba(51, 136, 255, 0.2);
-        }
-        
-        .format-example {
-            font-size: 12px;
-            color: #666;
-            margin-top: 8px;
-            font-style: italic;
-            flex-shrink: 0;
-            padding: 0 4px;
-        }
-        
-        .legend {
-            padding: 14px;
-            background: #f8f9fa;
-            border-radius: 8px;
-            font-size: 12px;
-            border-top: 1px solid #eee;
-            margin-top: 10px;
-        }
-        
-        .legend-title {
-            font-weight: 600;
-            margin-bottom: 8px;
-            color: #444;
-            display: flex;
-            align-items: center;
-            gap: 6px;
-        }
-        
-        .legend-title::before {
-            content: "🎨";
-        }
-        
-        .legend-item {
-            display: flex;
-            align-items: center;
-            margin: 6px 0;
-        }
-        
-        .legend-color {
-            width: 20px;
-            height: 4px;
-            margin-right: 8px;
-            border-radius: 2px;
-        }
-        
-        .legend-point {
-            width: 12px;
-            height: 12px;
-            border-radius: 50%;
-            margin-right: 8px;
-        }
-        
-        .legend-line {
-            background-color: #3388FF;
-        }
-        
-        .legend-polygon {
-            background-color: #FF6B6B;
-        }
-        
-        .legend-point-color {
-            background-color: #28a745;
-        }
-        
-        .status-message {
-            padding: 10px 14px;
-            border-radius: 6px;
-            font-size: 13px;
-            margin-top: 8px;
-            display: none;
-        }
-        
-        .status-success {
-            background: #d4edda;
-            color: #155724;
-            border-left: 4px solid #28a745;
-        }
-        
-        .status-error {
-            background: #f8d7da;
-            color: #721c24;
-            border-left: 4px solid #dc3545;
-        }
-
-        .intersection-panel {
-            display: none;
-            border: 1px solid #ffd3cf;
-            background: #fff5f4;
-            border-radius: 8px;
-            padding: 10px 12px;
-            margin-top: 8px;
-            font-size: 12px;
-        }
-
-        .intersection-panel-title {
-            color: #b42318;
-            font-weight: 600;
-            margin-bottom: 6px;
-        }
-
-        .intersection-list {
-            list-style: none;
-            margin: 0;
-            padding: 0;
-            display: flex;
-            flex-direction: column;
-            gap: 6px;
-            max-height: 110px;
-            overflow-y: auto;
-        }
-
-        .intersection-link {
-            border: none;
-            background: transparent;
-            color: #0b63ce;
-            text-align: left;
-            cursor: pointer;
-            padding: 0;
-            font-size: 12px;
-        }
-
-        .intersection-link:hover {
-            text-decoration: underline;
-        }
-        
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        html, body, #container { width: 100%; height: 100%; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; overflow: hidden; }
+        .control-panel { position: absolute; top: 20px; left: 20px; width: 420px; background: white; box-shadow: 0 4px 20px rgba(0,0,0,.15); border-radius: 12px; z-index: 10; max-height: 95vh; overflow-y: auto; display: flex; flex-direction: column; }
+        .tool-panel { position: absolute; top: 20px; right: 20px; width: 360px; background: white; box-shadow: 0 4px 20px rgba(0,0,0,.12); border-radius: 12px; z-index: 10; max-height: 95vh; overflow-y: auto; padding: 14px; display: flex; flex-direction: column; gap: 12px; }
+        .tool-panel-title { font-size: 14px; font-weight: 700; color: #2f3d4a; }
+        .tool-panel-header { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+        .tool-panel-toggle { border: 1px solid #d4dbe6; background: #f8fafc; color: #334155; border-radius: 6px; width: 32px; height: 32px; font-size: 12px; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; }
+        .tool-panel-toggle:hover { background: #eef3f8; }
+        .tool-panel-body { display: flex; flex-direction: column; gap: 12px; }
+        .tool-panel.collapsed { width: 220px; max-height: none; }
+        .tool-panel.collapsed .tool-panel-body { display: none; }
+        .panel-header { background: linear-gradient(135deg, #3388FF, #4A90E2); color: white; padding: 18px 20px; border-radius: 12px 12px 0 0; margin: 0; position: sticky; top: 0; z-index: 11; flex-shrink: 0; }
+        .panel-header h3 { margin: 0; font-size: 20px; text-align: center; font-weight: 600; letter-spacing: .5px; }
+        .panel-content { padding: 20px; flex: 1; display: flex; flex-direction: column; gap: 16px; }
+        .tabs { display: flex; border-bottom: 1px solid #eaeaea; margin-bottom: 0; background: white; z-index: 10; flex-shrink: 0; border-radius: 8px 8px 0 0; overflow: hidden; }
+        .tab { flex: 1; padding: 14px 8px; text-align: center; cursor: pointer; border-bottom: 3px solid transparent; transition: all .3s ease; font-size: 15px; font-weight: 500; color: #666; }
+        .tab.active { border-bottom: 3px solid #3388FF; color: #3388FF; background-color: #f8fbff; }
+        .current-tab-indicator { background: #e7f3ff; padding: 12px 16px; border-radius: 8px; margin: 0; font-size: 14px; border-left: 4px solid #3388FF; flex-shrink: 0; display: flex; align-items: center; gap: 8px; }
+        .current-tab-indicator::before { content: "📍"; font-size: 16px; }
+        .action-buttons { background: white; padding: 0 0 12px 0; margin: 0; flex-shrink: 0; display: flex; flex-direction: column; gap: 12px; }
+        .validation-toggle { display: flex; align-items: center; gap: 8px; padding: 8px 10px; border: 1px solid #e6ebf2; border-radius: 6px; background: #f8fafc; font-size: 13px; color: #334155; }
+        .validation-toggle input { width: 16px; height: 16px; }
+        .main-button-group { display: flex; gap: 10px; margin: 0; flex-wrap: wrap; }
+        .main-button-group button { flex: 1; min-width: 110px; padding: 12px; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; transition: all .3s; font-size: 14px; display: flex; align-items: center; justify-content: center; gap: 6px; }
+        .btn-primary { background: #3388FF; color: white; }
+        .btn-primary:hover { background: #297acc; transform: translateY(-2px); box-shadow: 0 4px 8px rgba(51,136,255,.3); }
+        .btn-secondary { background: #6c757d; color: white; }
+        .btn-secondary:hover { background: #5a6268; transform: translateY(-2px); box-shadow: 0 4px 8px rgba(108,117,125,.3); }
+        .btn-success { background: #28a745; color: white; }
+        .btn-success:hover { background: #218838; transform: translateY(-2px); box-shadow: 0 4px 8px rgba(40,167,69,.3); }
+        .coord-picker-panel { border: 1px solid #dbe7ff; background: #f6f9ff; border-radius: 8px; padding: 10px; display: flex; flex-direction: column; gap: 8px; }
+        .coord-picker-actions { display: flex; gap: 8px; }
+        .btn-warning { background: #ff9f1a; color: #fff; }
+        .btn-warning:hover { background: #f08c00; transform: translateY(-1px); box-shadow: 0 4px 8px rgba(240,140,0,.28); }
+        .btn-danger { background: #dc3545; color: #fff; }
+        .btn-danger:hover { background: #c82333; transform: translateY(-1px); box-shadow: 0 4px 8px rgba(220,53,69,.28); }
+        .coord-picker-actions button { flex: 1; padding: 9px; border: none; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 600; }
+        .coord-output { width: 100%; border: 1px solid #cfd9ee; border-radius: 6px; padding: 8px; font-size: 12px; font-family: Consolas, Monaco, monospace; background: #fff; min-height: 56px; resize: vertical; }
+        .poi-panel { border: 1px solid #d8eee0; background: #f4fbf7; border-radius: 8px; padding: 10px; display: flex; flex-direction: column; gap: 8px; }
+        .poi-panel-title { font-size: 12px; color: #2f6b45; font-weight: 600; }
+        .poi-input { width: 100%; border: 1px solid #cfe3d7; border-radius: 6px; padding: 8px; font-size: 12px; font-family: Consolas, Monaco, monospace; background: #fff; min-height: 92px; resize: vertical; }
+        .poi-actions { display: flex; gap: 8px; }
+        .poi-actions button { flex: 1; padding: 9px; border: none; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 600; }
+        .tab-content { display: none; flex: 1; flex-direction: column; gap: 12px; }
+        .tab-content.active { display: flex; }
+        .format-indicator { padding: 10px 14px; background: #f8f9fa; border-radius: 6px; font-size: 13px; border-left: 4px solid #28a745; flex-shrink: 0; display: flex; align-items: center; gap: 8px; }
+        .format-indicator::before { content: "📋"; }
+        .format-indicator.wkt { border-left-color: #3388FF; }
+        .format-indicator.coords { border-left-color: #28a745; }
+        .format-indicator.json { border-left-color: #ff9f1a; }
+        .input-item { display: flex; flex-direction: column; flex: 1; min-height: 0; }
+        .input-item textarea { width: 100%; flex: 1; min-height: 320px; margin: 0; padding: 16px; border: 1px solid #ddd; border-radius: 8px; resize: vertical; font-family: Consolas, Monaco, monospace; font-size: 14px; box-sizing: border-box; line-height: 1.6; transition: border .3s; }
+        .input-item textarea:focus { border-color: #3388FF; outline: none; box-shadow: 0 0 0 2px rgba(51,136,255,.2); }
+        .format-example { font-size: 12px; color: #666; margin-top: 8px; font-style: italic; flex-shrink: 0; padding: 0 4px; line-height: 1.5; }
+        .legend { padding: 14px; background: #f8f9fa; border-radius: 8px; font-size: 12px; border-top: 1px solid #eee; margin-top: 10px; }
+        .legend-title { font-weight: 600; margin-bottom: 8px; color: #444; display: flex; align-items: center; gap: 6px; }
+        .legend-title::before { content: "🎨"; }
+        .legend-item { display: flex; align-items: center; margin: 6px 0; }
+        .legend-color { width: 20px; height: 4px; margin-right: 8px; border-radius: 2px; }
+        .legend-point { width: 12px; height: 12px; border-radius: 50%; margin-right: 8px; }
+        .legend-line { background-color: #3388FF; }
+        .legend-polygon { background-color: #FF6B6B; }
+        .legend-exclave { background-color: #FF9F43; }
+        .legend-point-color { background-color: #28a745; }
+        .status-message { padding: 10px 14px; border-radius: 6px; font-size: 13px; margin-top: 8px; display: none; }
+        .status-success { background: #d4edda; color: #155724; border-left: 4px solid #28a745; }
+        .status-error { background: #f8d7da; color: #721c24; border-left: 4px solid #dc3545; }
+        .intersection-panel { display: none; border: 1px solid #ffd3cf; background: #fff5f4; border-radius: 8px; padding: 10px 12px; margin-top: 8px; font-size: 12px; }
+        .intersection-panel-title { color: #b42318; font-weight: 600; margin-bottom: 6px; }
+        .intersection-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; max-height: 110px; overflow-y: auto; }
+        .intersection-link { border: none; background: transparent; color: #0b63ce; text-align: left; cursor: pointer; padding: 0; font-size: 12px; }
+        .intersection-link:hover { text-decoration: underline; }
         @media (max-width: 768px) {
-            .control-panel {
-                width: calc(100% - 40px);
-                max-height: 85vh;
-            }
-            .tool-panel {
-                width: calc(100% - 40px);
-                top: auto;
-                left: 20px;
-                right: 20px;
-                bottom: 20px;
-                max-height: 40vh;
-            }
-            .input-item textarea {
-                min-height: 250px;
-            }
-            .panel-content {
-                gap: 12px;
-            }
-            .main-button-group {
-                flex-direction: column;
-            }
+            .control-panel { width: calc(100% - 40px); max-height: 85vh; }
+            .tool-panel { width: calc(100% - 40px); top: auto; left: 20px; right: 20px; bottom: 20px; max-height: 40vh; }
+            .input-item textarea { min-height: 250px; }
         }
     </style>
 </head>
 <body>
     <div id="container"></div>
-    
     <div class="control-panel">
-        <div class="panel-header">
-            <h3>几何数据展示工具</h3>
-        </div>
-        
+        <div class="panel-header"><h3>几何数据展示工具</h3></div>
         <div class="panel-content">
-            <!-- 标签导航 -->
             <div class="tabs">
                 <div class="tab" data-tab="points">点数据</div>
                 <div class="tab" data-tab="lines">线数据</div>
                 <div class="tab active" data-tab="polygons">多边形数据</div>
             </div>
-            
-            <!-- 当前选中指示器 -->
-            <div class="current-tab-indicator" id="current-tab-indicator">
-                当前选中: <strong>多边形数据</strong>
-            </div>
-            
-            <!-- 操作按钮 -->
+            <div class="current-tab-indicator" id="current-tab-indicator">当前选中: <strong>多边形数据</strong></div>
             <div class="action-buttons">
                 <div class="main-button-group">
-                    <button class="btn-success" id="show-current-btn">
-                        <span>🔍</span> 显示当前图形
-                    </button>
-                    <button class="btn-primary" id="show-all-btn">
-                        <span>🗺️</span> 显示所有图形
-                    </button>
-                    <button class="btn-secondary" id="clear-all-btn">
-                        <span>🗑️</span> 清除所有
-                    </button>
+                    <button class="btn-success" id="show-current-btn"><span>🔍</span> 显示当前图形</button>
+                    <button class="btn-primary" id="show-all-btn"><span>🗺️</span> 显示所有图形</button>
+                    <button class="btn-secondary" id="clear-all-btn"><span>🗑️</span> 清除所有</button>
+                </div>
+                <div class="main-button-group">
+                    <button class="btn-primary" id="extract-json-btn"><span>📄</span> 提取 JSON 边界</button>
+                    <button class="btn-secondary" id="load-langfang-btn"><span>🧩</span> 加载廊坊示例</button>
                 </div>
                 <label class="validation-toggle" for="polygon-validation-toggle">
                     <input type="checkbox" id="polygon-validation-toggle">
                     <span>开启多边形合法性检测（默认关闭）</span>
                 </label>
             </div>
-            
-            <!-- 点数据标签页 -->
             <div class="tab-content" id="points-tab">
-                <div class="format-indicator" id="points-format-indicator">
-                    检测到格式: <strong>WKT</strong>
-                </div>
-                <div class="input-item">
-                    <textarea id="points-input" placeholder="请输入点数据 (WKT或坐标串)">POINT (104.065603 30.641998)</textarea>
-                </div>
-                <div class="format-example">
-                    提示: 支持 POINT/MULTIPOINT 或坐标串格式
-                </div>
+                <div class="format-indicator" id="points-format-indicator">检测到格式: <strong>WKT</strong></div>
+                <div class="input-item"><textarea id="points-input" placeholder="请输入点数据 (WKT或坐标串)">POINT (104.065603 30.641998)</textarea></div>
+                <div class="format-example">提示: 支持 POINT/MULTIPOINT 或坐标串格式</div>
             </div>
-            
-            <!-- 线数据标签页 -->
             <div class="tab-content" id="lines-tab">
-                <div class="format-indicator" id="lines-format-indicator">
-                    检测到格式: <strong>WKT</strong>
-                </div>
-                <div class="input-item">
-                    <textarea id="lines-input" placeholder="请输入线数据 (WKT或坐标串)">MULTILINESTRING ((116.4279376 39.8443999,116.4278987 39.8444812,116.4278609 39.8445569))</textarea>
-                </div>
-                <div class="format-example">
-                    提示: 支持 LINESTRING/MULTILINESTRING 或坐标串格式
-                </div>
+                <div class="format-indicator" id="lines-format-indicator">检测到格式: <strong>WKT</strong></div>
+                <div class="input-item"><textarea id="lines-input" placeholder="请输入线数据 (WKT或坐标串)">MULTILINESTRING ((116.4279376 39.8443999,116.4278987 39.8444812,116.4278609 39.8445569))</textarea></div>
+                <div class="format-example">提示: 支持 LINESTRING/MULTILINESTRING 或坐标串格式</div>
             </div>
-            
-            <!-- 多边形数据标签页 -->
             <div class="tab-content active" id="polygons-tab">
-                <div class="format-indicator" id="polygon-format-indicator">
-                    检测到格式: <strong>WKT</strong>
-                </div>
-                <div class="input-item">
-                    <textarea id="polygon-input" placeholder="请输入多边形数据，支持以下格式：
-MULTIPOLYGON(((116.267 40.143, ...)), ((116.278 40.150, ...)))">MULTIPOLYGON (((116.267554 40.143674, 116.276690 40.146418, 116.279322 40.147106, 116.280005 40.144965, 116.283973 40.146092, 116.285033 40.146355, 116.289183 40.147556, 116.290073 40.146855, 116.290675 40.145969, 116.287825 40.144879, 116.288980 40.141879, 116.289029 40.141727, 116.292728 40.142273, 116.293094 40.142339, 116.295110 40.142508, 116.302110 40.143200, 116.302768 40.140103, 116.297349 40.139644, 116.297428 40.139241, 116.292626 40.138913, 116.290668 40.138374, 116.286600 40.138182, 116.283331 40.138137, 116.277863 40.137829, 116.277319 40.139720, 116.276325 40.139594, 116.275799 40.139680, 116.275014 40.140193, 116.274188 40.139238, 116.273272 40.138283, 116.271391 40.137550, 116.271312 40.137856, 116.271185 40.140226, 116.271226 40.141041, 116.269384 40.140577, 116.268609 40.142467, 116.268572 40.142557, 116.267884 40.142589, 116.267786 40.142671, 116.267554 40.143674)), ((116.278184 40.150960, 116.284874 40.152902, 116.285020 40.152947, 116.285938 40.151100, 116.279006 40.149139, 116.278184 40.150960)), ((116.241132 40.154537, 116.245402 40.155578, 116.246149 40.154617, 116.249661 40.155446, 116.250890 40.153510, 116.245508 40.152263, 116.245339 40.152220, 116.241132 40.154537)))</textarea>
-                </div>
+                <div class="format-indicator" id="polygon-format-indicator">检测到格式: <strong>WKT</strong></div>
+                <div class="input-item"><textarea id="polygon-input" placeholder="支持 WKT / 坐标串 / 城市边界 JSON（含 position_border）"></textarea></div>
                 <div class="format-example">
-                    提示: 多边形数据支持坐标串和WKT(POLYGON/MULTIPOLYGON)格式
+                    坐标串：单面 <code>lng,lat;lng,lat;...</code><br>
+                    飞地：块之间用 <code>||</code> 或换行；廊坊等也支持单 <code>|</code> 连接两块不相邻区域（自动识别为飞地，非洞）<br>
+                    同面内洞：块内用 <code>|</code> 分隔外环与内环（内环落在外环内时识别为洞）<br>
+                    也可直接粘贴 <code>城市边界修改_修复后.json</code>，点「提取 JSON 边界」
                 </div>
             </div>
-            
             <div class="status-message" id="status-message"></div>
-            
             <div class="legend">
                 <div class="legend-title">图例说明</div>
-                <div class="legend-item">
-                    <div class="legend-point legend-point-color"></div>
-                    <span>点数据</span>
-                </div>
-                <div class="legend-item">
-                    <div class="legend-color legend-line"></div>
-                    <span>线数据</span>
-                </div>
-                <div class="legend-item">
-                    <div class="legend-color legend-polygon"></div>
-                    <span>多边形数据</span>
-                </div>
-                <div class="legend-item">
-                    <div class="legend-color" style="background-color:#ff3b30;height:6px;"></div>
-                    <span>自相交高亮</span>
-                </div>
+                <div class="legend-item"><div class="legend-point legend-point-color"></div><span>点数据</span></div>
+                <div class="legend-item"><div class="legend-color legend-line"></div><span>线数据</span></div>
+                <div class="legend-item"><div class="legend-color legend-polygon"></div><span>多边形主体</span></div>
+                <div class="legend-item"><div class="legend-color legend-exclave"></div><span>飞地 / 独立块（橙）</span></div>
+                <div class="legend-item"><div class="legend-color" style="background-color:#ff3b30;height:6px;"></div><span>自相交高亮</span></div>
             </div>
-
             <div class="intersection-panel" id="intersection-panel">
                 <div class="intersection-panel-title" id="intersection-panel-title">⚠️ 检测到多边形自相交，点击可定位：</div>
                 <ul class="intersection-list" id="intersection-list"></ul>
             </div>
         </div>
     </div>
-
     <div class="tool-panel collapsed" id="tool-panel">
         <div class="tool-panel-header">
             <div class="tool-panel-title">坐标拾取 / POI工具栏</div>
@@ -692,11 +159,9 @@ MULTIPOLYGON(((116.267 40.143, ...)), ((116.278 40.150, ...)))">MULTIPOLYGON (((
                 </div>
                 <textarea id="picked-coord-output" class="coord-output" readonly placeholder="点击“开启戳点拾取”后，在图面点击任意位置获取坐标"></textarea>
             </div>
-
             <div class="poi-panel">
                 <div class="poi-panel-title">POI标注（格式：名称：lng,lat，每行一个）</div>
-                <textarea id="poi-input" class="poi-input" placeholder="清河之洲：116.3060, 40.0188
-温榆河公园：116.4851, 40.0863"></textarea>
+                <textarea id="poi-input" class="poi-input" placeholder="三河：117.078,39.982&#10;广阳：116.711,39.523"></textarea>
                 <div class="poi-actions">
                     <button class="btn-success" id="show-poi-btn">🏷️ 标注POI</button>
                     <button class="btn-secondary" id="clear-poi-btn">🧹 清除POI</button>
@@ -704,780 +169,575 @@ MULTIPOLYGON(((116.267 40.143, ...)), ((116.278 40.150, ...)))">MULTIPOLYGON (((
             </div>
         </div>
     </div>
-
     <script src="https://cache.amap.com/lbs/static/es5.min.js"></script>
     <script src="https://webapi.amap.com/maps?v=2.0&key=1cf9fc45df860df45e87af1230f5da74"></script>
     <script>
-        document.addEventListener('DOMContentLoaded', function() {
-            // 初始化地图
-            var map = new AMap.Map('container', {
-                zoom: 14,
-                center: [116.276, 40.145], // 调整为沙河附近
-                viewMode: '3D'
+document.addEventListener('DOMContentLoaded', function () {
+    var map = new AMap.Map('container', { zoom: 8, center: [116.704, 39.52], viewMode: '3D' });
+    var points = [], lines = [], polygons = [], poiMarkers = [], polygonDiagnostics = [], intersectionAlerts = [];
+    var pickedCoordMarker = null, pickMode = false, currentTab = 'polygons';
+    var POLYGON_COLORS = [
+        { stroke: '#FF6B6B', fill: '#FF6B6B' },
+        { stroke: '#FF9F43', fill: '#FF9F43' },
+        { stroke: '#54A0FF', fill: '#54A0FF' },
+        { stroke: '#5CD5A8', fill: '#5CD5A8' },
+        { stroke: '#A66CFF', fill: '#A66CFF' }
+    ];
+
+    function normalizeInputText(text) {
+        return (text || '').replace(/[，]/g, ',').replace(/[；]/g, ';').replace(/[｜]/g, '|').replace(/\u3000/g, ' ');
+    }
+
+    function detectFormat(input, type) {
+        if (!input || input.trim() === '') return 'unknown';
+        var normalized = normalizeInputText(input).trim();
+        if (/^[\[{]/.test(normalized)) return 'json';
+        var text = normalized.toUpperCase();
+        if (type === 'points' && (text.startsWith('MULTIPOINT') || text.startsWith('POINT'))) return 'wkt';
+        if (type === 'lines' && (text.startsWith('MULTILINESTRING') || text.startsWith('LINESTRING'))) return 'wkt';
+        if (type === 'polygons' && (text.startsWith('MULTIPOLYGON') || text.startsWith('POLYGON'))) return 'wkt';
+        if (extractCoordinatePairs(normalized).length > 0) return 'coords';
+        return 'unknown';
+    }
+
+    function extractCoordinatePairs(text) {
+        var normalized = normalizeInputText(text);
+        var matches = normalized.match(/-?\d+(?:\.\d+)?\s*[, ]\s*-?\d+(?:\.\d+)?/g) || [];
+        return matches.map(function (m) {
+            var parts = m.trim().split(/[, ]+/);
+            return [parseFloat(parts[0]), parseFloat(parts[1])];
+        }).filter(function (pair) { return !isNaN(pair[0]) && !isNaN(pair[1]); });
+    }
+
+    function normalizePolygonRing(coords) {
+        if (coords.length > 2) {
+            var first = coords[0], last = coords[coords.length - 1];
+            if (first[0] !== last[0] || first[1] !== last[1]) coords.push([first[0], first[1]]);
+        }
+        return coords;
+    }
+
+    function ringAreaAbs(ring) {
+        var area = 0;
+        for (var i = 0; i < ring.length - 1; i++) {
+            area += ring[i][0] * ring[i + 1][1] - ring[i + 1][0] * ring[i][1];
+        }
+        return Math.abs(area / 2);
+    }
+
+    function ringCentroid(ring) {
+        var n = ring.length;
+        if (n > 1 && ring[0][0] === ring[n - 1][0] && ring[0][1] === ring[n - 1][1]) n -= 1;
+        if (n <= 0) return [0, 0];
+        var x = 0, y = 0;
+        for (var i = 0; i < n; i++) { x += ring[i][0]; y += ring[i][1]; }
+        return [x / n, y / n];
+    }
+
+    function pointInRing(point, ring) {
+        var x = point[0], y = point[1], inside = false;
+        for (var i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+            var xi = ring[i][0], yi = ring[i][1], xj = ring[j][0], yj = ring[j][1];
+            var intersect = ((yi > y) !== (yj > y)) && (x < (xj - xi) * (y - yi) / ((yj - yi) || 1e-15) + xi);
+            if (intersect) inside = !inside;
+        }
+        return inside;
+    }
+
+    function ringContainsRing(outer, inner) {
+        return pointInRing(ringCentroid(inner), outer);
+    }
+
+    function groupRingsIntoPolygons(rings) {
+        if (!rings || rings.length === 0) return [];
+        if (rings.length === 1) return [rings[0]];
+        var sorted = rings.map(function (ring, index) {
+            return { ring: ring, area: ringAreaAbs(ring), index: index };
+        }).sort(function (a, b) { return b.area - a.area; });
+        var used = {};
+        var result = [];
+        sorted.forEach(function (item) {
+            if (used[item.index]) return;
+            used[item.index] = true;
+            var exterior = item.ring;
+            var holes = [];
+            sorted.forEach(function (other) {
+                if (used[other.index] || other.index === item.index) return;
+                if (ringContainsRing(exterior, other.ring)) {
+                    holes.push(other.ring);
+                    used[other.index] = true;
+                }
             });
-            
-            var points = [], lines = [], polygons = [], poiMarkers = [], polygonDiagnostics = [], intersectionAlerts = [], pickedCoordMarker = null, pickMode = false, currentTab = 'polygons'; // merge-resolved: keep diagnostics state
-
-            function normalizeInputText(text) {
-                return (text || '')
-                    .replace(/[，]/g, ',')
-                    .replace(/[；]/g, ';')
-                    .replace(/[｜]/g, '|')
-                    .replace(/\u3000/g, ' ');
-            }
-
-            // 自动检测格式
-            function detectFormat(input, type) {
-                if (!input || input.trim() === '') return 'unknown';
-                var normalized = normalizeInputText(input);
-                var text = normalized.trim().toUpperCase();
-                if (type === 'points') {
-                    if (text.startsWith('MULTIPOINT') || text.startsWith('POINT')) return 'wkt';
-                } else if (type === 'lines') {
-                    if (text.startsWith('MULTILINESTRING') || text.startsWith('LINESTRING')) return 'wkt';
-                } else if (type === 'polygons') {
-                    if (text.startsWith('MULTIPOLYGON') || text.startsWith('POLYGON')) return 'wkt';
-                }
-                if (extractCoordinatePairs(normalized).length > 0) return 'coords';
-                return 'unknown';
-            }
-
-            function extractCoordinatePairs(text) {
-                var normalized = normalizeInputText(text);
-                var matches = normalized.match(/-?\d+(?:\.\d+)?\s*[, ]\s*-?\d+(?:\.\d+)?/g) || [];
-                return matches.map(m => {
-                    var parts = m.trim().split(/[, ]+/);
-                    return [parseFloat(parts[0]), parseFloat(parts[1])];
-                }).filter(pair => !isNaN(pair[0]) && !isNaN(pair[1]));
-            }
-
-            function normalizePolygonRing(coords) {
-                if (coords.length > 2) {
-                    var first = coords[0], last = coords[coords.length - 1];
-                    if (first[0] !== last[0] || first[1] !== last[1]) coords.push([first[0], first[1]]);
-                }
-                return coords;
-            }
-
-            function clearPolygonDiagnostics() {
-                polygonDiagnostics.forEach(item => map.remove(item));
-                polygonDiagnostics = [];
-                intersectionAlerts = [];
-                renderIntersectionAlerts([]);
-            }
-
-            function formatCoord(coord) {
-                return `${coord[0].toFixed(6)}, ${coord[1].toFixed(6)}`;
-            }
-
-            function renderIntersectionAlerts(items) {
-                var panel = document.getElementById('intersection-panel');
-                var title = document.getElementById('intersection-panel-title');
-                var list = document.getElementById('intersection-list');
-                if (!panel || !list || !title) return;
-
-                list.innerHTML = '';
-                if (!items || items.length === 0) {
-                    panel.style.display = 'none';
-                    return;
-                }
-
-                title.textContent = `⚠️ 检测到 ${items.length} 处原始连线自相交（图面编号已标注），点击可定位异常线段：`;
-
-                items.forEach((item, index) => {
-                    var li = document.createElement('li');
-                    var button = document.createElement('button');
-                    button.type = 'button';
-                    button.className = 'intersection-link';
-                    button.textContent = `图面编号#${item.pointNo}：线段[${item.segA + 1}] ${formatCoord(item.a1)} → ${formatCoord(item.a2)} 与 线段[${item.segB + 1}] ${formatCoord(item.b1)} → ${formatCoord(item.b2)}`;
-                    button.addEventListener('click', function () {
-                        var overlays = [];
-                        if (item.marker) overlays.push(item.marker);
-                        if (item.segAOverlay) overlays.push(item.segAOverlay);
-                        if (item.segBOverlay) overlays.push(item.segBOverlay);
-                        if (overlays.length > 0) {
-                            map.setFitView(overlays);
-                        } else {
-                            map.setZoomAndCenter(Math.max(map.getZoom(), 17), item.point);
-                        }
-
-                        showStatus(`已定位到第 ${index + 1} 处自相交（原始线段异常）`, true);
-
-                        [item.segAOverlay, item.segBOverlay].forEach(function (seg) {
-                            if (!seg) return;
-                            seg.setOptions({ strokeWeight: 8, strokeColor: '#d92d20' });
-                            setTimeout(function () {
-                                seg.setOptions({ strokeWeight: 6, strokeColor: '#ff3b30' });
-                            }, 700);
-                        });
-
-                        if (item.marker) {
-                            item.marker.setOptions({ radius: 10, fillOpacity: 1 });
-                            setTimeout(function () {
-                                item.marker.setOptions({ radius: 7, fillOpacity: 0.9 });
-                            }, 700);
-                        }
-                    });
-                    li.appendChild(button);
-                    list.appendChild(li);
-                });
-
-                panel.style.display = 'block';
-            }
-
-            function segmentIntersection(a, b, c, d) {
-                var EPS = 1e-10;
-
-                function cross(p1, p2, p3) {
-                    return (p2[0] - p1[0]) * (p3[1] - p1[1]) - (p2[1] - p1[1]) * (p3[0] - p1[0]);
-                }
-
-                function orient(p1, p2, p3) {
-                    var v = cross(p1, p2, p3);
-                    if (Math.abs(v) <= EPS) return 0;
-                    return v > 0 ? 1 : -1;
-                }
-
-                function onSegment(p1, p2, q, tol) {
-                    var T = (typeof tol === 'number') ? tol : EPS;
-                    return q[0] >= Math.min(p1[0], p2[0]) - T && q[0] <= Math.max(p1[0], p2[0]) + T &&
-                           q[1] >= Math.min(p1[1], p2[1]) - T && q[1] <= Math.max(p1[1], p2[1]) + T;
-                }
-
-                function lineIntersection(p1, p2, p3, p4) {
-                    var x1 = p1[0], y1 = p1[1], x2 = p2[0], y2 = p2[1];
-                    var x3 = p3[0], y3 = p3[1], x4 = p4[0], y4 = p4[1];
-                    var den = (x1 - x2) * (y3 - y4) - (y1 - y2) * (x3 - x4);
-                    if (Math.abs(den) <= EPS) return null;
-
-                    var det1 = x1 * y2 - y1 * x2;
-                    var det2 = x3 * y4 - y3 * x4;
-                    var px = (det1 * (x3 - x4) - (x1 - x2) * det2) / den;
-                    var py = (det1 * (y3 - y4) - (y1 - y2) * det2) / den;
-                    return [px, py];
-                }
-
-                function projectPointToSegment(p, s1, s2) {
-                    var vx = s2[0] - s1[0], vy = s2[1] - s1[1];
-                    var len2 = vx * vx + vy * vy;
-                    if (len2 <= EPS * EPS) return { point: [s1[0], s1[1]], t: 0 };
-                    var t = ((p[0] - s1[0]) * vx + (p[1] - s1[1]) * vy) / len2;
-                    if (t < 0) t = 0;
-                    else if (t > 1) t = 1;
-                    return { point: [s1[0] + t * vx, s1[1] + t * vy], t: t };
-                }
-
-                function distance2(p1, p2) {
-                    var dx = p1[0] - p2[0], dy = p1[1] - p2[1];
-                    return dx * dx + dy * dy;
-                }
-
-                var o1 = orient(a, b, c);
-                var o2 = orient(a, b, d);
-                var o3 = orient(c, d, a);
-                var o4 = orient(c, d, b);
-
-                if (o1 === 0 && onSegment(a, b, c)) return [c[0], c[1]];
-                if (o2 === 0 && onSegment(a, b, d)) return [d[0], d[1]];
-                if (o3 === 0 && onSegment(c, d, a)) return [a[0], a[1]];
-                if (o4 === 0 && onSegment(c, d, b)) return [b[0], b[1]];
-
-                if (o1 !== o2 && o3 !== o4) {
-                    var pt = lineIntersection(a, b, c, d);
-                    if (pt) return pt;
-                }
-
-                // 兜底：对“几乎相交”的数值情况再做一次容差判断，避免漏检尖角自相交
-                var fallback = lineIntersection(a, b, c, d);
-                if (fallback && onSegment(a, b, fallback, 1e-8) && onSegment(c, d, fallback, 1e-8)) {
-                    return fallback;
-                }
-
-                // 再兜底：极近距离“擦边/尖角”情形，按近邻交叉处理（用于修复漏检）
-                var nearTol = 5e-7;
-                var nearTol2 = nearTol * nearTol;
-                var c1 = projectPointToSegment(a, c, d);
-                var c2 = projectPointToSegment(b, c, d);
-                var c3 = projectPointToSegment(c, a, b);
-                var c4 = projectPointToSegment(d, a, b);
-
-                var candidates = [
-                    { p: a, q: c1.point, d2: distance2(a, c1.point), t: c1.t },
-                    { p: b, q: c2.point, d2: distance2(b, c2.point), t: c2.t },
-                    { p: c, q: c3.point, d2: distance2(c, c3.point), t: c3.t },
-                    { p: d, q: c4.point, d2: distance2(d, c4.point), t: c4.t }
-                ];
-                candidates.sort(function(m, n) { return m.d2 - n.d2; });
-                var best = candidates[0];
-                if (best && best.d2 <= nearTol2 && best.t > 0.02 && best.t < 0.98) {
-                    return [(best.p[0] + best.q[0]) / 2, (best.p[1] + best.q[1]) / 2];
-                }
-
-                return null;
-            }
-
-            function detectRingSelfIntersections(ring) {
-                if (!ring || ring.length < 4) return [];
-                var intersections = [];
-                var seen = new Set();
-
-                for (var i = 0; i < ring.length - 1; i++) {
-                    var a1 = ring[i], a2 = ring[i + 1];
-                    for (var j = i + 1; j < ring.length - 1; j++) {
-                        if (Math.abs(i - j) <= 1) continue;
-                        if (i === 0 && j === ring.length - 2) continue;
-
-                        var b1 = ring[j], b2 = ring[j + 1];
-                        var point = segmentIntersection(a1, a2, b1, b2);
-                        if (!point) continue;
-
-                        var key = point[0].toFixed(10) + ',' + point[1].toFixed(10) + ':' + i + '-' + j;
-                        if (seen.has(key)) continue;
-                        seen.add(key);
-                        intersections.push({ point: point, segA: i, segB: j, a1: a1, a2: a2, b1: b1, b2: b2 });
-                    }
-                }
-
-                // 额外检测：非相邻重复顶点（常见于自相交/回折导致的非法 AOI）
-                var vertexBucket = {};
-                for (var k = 0; k < ring.length - 1; k++) {
-                    var vKey = ring[k][0].toFixed(10) + ',' + ring[k][1].toFixed(10);
-                    if (!vertexBucket[vKey]) vertexBucket[vKey] = [];
-                    vertexBucket[vKey].push(k);
-                }
-
-                Object.keys(vertexBucket).forEach(function(vKey) {
-                    var indexes = vertexBucket[vKey];
-                    if (indexes.length < 2) return;
-
-                    for (var x = 0; x < indexes.length; x++) {
-                        for (var y = x + 1; y < indexes.length; y++) {
-                            var i = indexes[x], j = indexes[y];
-                            if (Math.abs(i - j) <= 1) continue;
-                            if (i === 0 && j === ring.length - 2) continue;
-
-                            var dupKey = vKey + ':dup:' + i + '-' + j;
-                            if (seen.has(dupKey)) continue;
-                            seen.add(dupKey);
-
-                            var a1 = ring[i], a2 = ring[i + 1];
-                            var b1 = ring[j], b2 = ring[j + 1];
-                            intersections.push({
-                                point: ring[i],
-                                segA: i,
-                                segB: j,
-                                a1: a1,
-                                a2: a2,
-                                b1: b1,
-                                b2: b2,
-                                isDuplicateVertex: true
-                            });
-                        }
-                    }
-                });
-
-                return intersections;
-            }
-
-            function highlightSelfIntersections(path) {
-                var rings = (path.length > 0 && Array.isArray(path[0][0])) ? path : [path];
-                var segmentOverlays = {};
-                var pointMarkers = {};
-                var pointLabels = {};
-                var pointCounter = 0;
-                var alerts = [];
-
-                function getSegmentOverlay(ring, ringIndex, segIndex) {
-                    var key = ringIndex + ':' + segIndex;
-                    if (segmentOverlays[key]) return segmentOverlays[key];
-                    var segLine = new AMap.Polyline({
-                        path: [ring[segIndex], ring[segIndex + 1]],
-                        strokeColor: '#ff3b30',
-                        strokeWeight: 6,
-                        strokeOpacity: 0.9,
-                        lineJoin: 'round',
-                        zIndex: 70
-                    });
-                    map.add(segLine);
-                    polygonDiagnostics.push(segLine);
-                    segmentOverlays[key] = segLine;
-                    return segLine;
-                }
-
-                rings.forEach((ring, ringIndex) => {
-                    var intersections = detectRingSelfIntersections(ring);
-
-                    intersections.forEach(hit => {
-                        var pointKey = hit.point[0].toFixed(7) + ',' + hit.point[1].toFixed(7);
-                        var marker = pointMarkers[pointKey];
-                        if (!marker) {
-                            marker = new AMap.CircleMarker({
-                                center: hit.point,
-                                radius: 7,
-                                strokeColor: '#ff3b30',
-                                strokeWeight: 2,
-                                strokeOpacity: 1,
-                                fillColor: '#ffd6d3',
-                                fillOpacity: 0.9,
-                                zIndex: 80
-                            });
-                            map.add(marker);
-                            polygonDiagnostics.push(marker);
-                            pointMarkers[pointKey] = marker;
-
-                            pointCounter += 1;
-                            var label = new AMap.Marker({
-                                position: hit.point,
-                                offset: new AMap.Pixel(10, -16),
-                                content: `<div style="background:#d92d20;color:#fff;border:2px solid #fff;border-radius:12px;padding:1px 7px;font-size:12px;font-weight:700;line-height:18px;box-shadow:0 2px 6px rgba(0,0,0,.35);">#${pointCounter}</div>`,
-                                zIndex: 90
-                            });
-                            map.add(label);
-                            polygonDiagnostics.push(label);
-                            pointLabels[pointKey] = { no: pointCounter, overlay: label };
-                        }
-
-                        var segAOverlay = getSegmentOverlay(ring, ringIndex, hit.segA);
-                        var segBOverlay = getSegmentOverlay(ring, ringIndex, hit.segB);
-
-                        alerts.push({
-                            point: hit.point,
-                            marker: marker,
-                            segA: hit.segA,
-                            segB: hit.segB,
-                            a1: hit.a1,
-                            a2: hit.a2,
-                            b1: hit.b1,
-                            b2: hit.b2,
-                            segAOverlay: segAOverlay,
-                            segBOverlay: segBOverlay,
-                            pointNo: pointLabels[pointKey] ? pointLabels[pointKey].no : '-'
-                        });
-                    });
-                });
-
-                return alerts;
-            }
-
-            function addPolygonWithDiagnostics(path) {
-                var polygon = new AMap.Polygon({
-                    path: path,
-                    strokeColor: '#FF6B6B',
-                    strokeWeight: 3,
-                    strokeOpacity: 0.8,
-                    fillColor: '#FF6B6B',
-                    fillOpacity: 0.35
-                });
-                map.add(polygon);
-                polygons.push(polygon);
-                return highlightSelfIntersections(path);
-            }
-
-            function addPolygon(path) {
-                var polygon = new AMap.Polygon({
-                    path: path,
-                    strokeColor: '#FF6B6B',
-                    strokeWeight: 3,
-                    strokeOpacity: 0.8,
-                    fillColor: '#FF6B6B',
-                    fillOpacity: 0.35
-                });
-                map.add(polygon);
-                polygons.push(polygon);
-                return polygon;
-            }
-
-            function isPolygonValidationEnabled() {
-                var toggle = document.getElementById('polygon-validation-toggle');
-                return !!(toggle && toggle.checked);
-            }
-            
-            function updateFormatIndicator(type) {
-                var inputElement = document.getElementById(type === 'polygons' ? 'polygon-input' : type + '-input');
-                var indicatorElement = document.getElementById(type === 'polygons' ? 'polygon-format-indicator' : type + '-format-indicator');
-                
-                if (inputElement && indicatorElement) {
-                    var format = detectFormat(inputElement.value, type);
-                    if (format === 'wkt') {
-                        indicatorElement.innerHTML = '检测到格式: <strong>WKT</strong>';
-                        indicatorElement.className = 'format-indicator wkt';
-                    } else if (format === 'coords') {
-                        indicatorElement.innerHTML = '检测到格式: <strong>坐标串</strong>';
-                        indicatorElement.className = 'format-indicator coords';
-                    } else {
-                        indicatorElement.innerHTML = '格式: <strong>未知</strong>';
-                        indicatorElement.className = 'format-indicator';
-                    }
-                }
-            }
-            
-            function showStatus(message, isSuccess) {
-                var statusElement = document.getElementById('status-message');
-                statusElement.textContent = message;
-                statusElement.className = 'status-message ' + (isSuccess ? 'status-success' : 'status-error');
-                statusElement.style.display = 'block';
-                setTimeout(function() { statusElement.style.display = 'none'; }, 5000);
-            }
-
-            function setPickMode(enabled) {
-                pickMode = enabled;
-                var btn = document.getElementById('toggle-pick-btn');
-                if (!btn) return;
-                btn.textContent = enabled ? '🛑 关闭戳点拾取' : '📍 开启戳点拾取';
-                btn.className = enabled ? 'btn-danger' : 'btn-warning';
-                showStatus(enabled ? '已开启戳点拾取：请在地图上点击取坐标' : '已关闭戳点拾取', true);
-            }
-
-            function setPickedCoord(coord) {
-                var output = document.getElementById('picked-coord-output');
-                if (output) output.value = coord[0].toFixed(6) + ',' + coord[1].toFixed(6);
-
-                if (pickedCoordMarker) map.remove(pickedCoordMarker);
-                pickedCoordMarker = new AMap.Marker({
-                    position: coord,
-                    content: '<div style="background:#1f6feb;color:#fff;border-radius:10px;padding:2px 6px;font-size:11px;">拾取点</div>',
-                    offset: new AMap.Pixel(0, -8),
-                    zIndex: 120
-                });
-                map.add(pickedCoordMarker);
-            }
-
-            function copyPickedCoord() {
-                var output = document.getElementById('picked-coord-output');
-                if (!output || !output.value) {
-                    showStatus('暂无可复制坐标，请先戳点拾取', false);
-                    return;
-                }
-
-                var text = output.value;
-                if (navigator.clipboard && navigator.clipboard.writeText) {
-                    navigator.clipboard.writeText(text).then(function () {
-                        showStatus('坐标已复制：' + text, true);
-                    }).catch(function () {
-                        output.select();
-                        document.execCommand('copy');
-                        showStatus('坐标已复制：' + text, true);
-                    });
-                } else {
-                    output.select();
-                    document.execCommand('copy');
-                    showStatus('坐标已复制：' + text, true);
-                }
-            }
-
-            function clearPoiMarkers() {
-                poiMarkers.forEach(m => map.remove(m));
-                poiMarkers = [];
-            }
-
-            function showPoiMarkers() {
-                var input = document.getElementById('poi-input');
-                if (!input || !input.value.trim()) {
-                    showStatus('请先输入POI数据', false);
-                    return;
-                }
-
-                clearPoiMarkers();
-                var lines = normalizeInputText(input.value).split(/\n+/).map(t => t.trim()).filter(Boolean);
-                var count = 0;
-
-                lines.forEach((line, idx) => {
-                    var parts = line.split(/[:：]/);
-                    var name = parts.length > 1 ? parts[0].trim() : `POI${idx + 1}`;
-                    var coordText = parts.length > 1 ? parts.slice(1).join(':').trim() : parts[0].trim();
-                    var coords = extractCoordinatePairs(coordText);
-                    if (!coords.length) return;
-                    var coord = coords[0];
-
-                    var marker = new AMap.Marker({
-                        position: coord,
-                        title: name,
-                        label: { content: `<div style="padding:2px 6px;background:#1f6feb;color:#fff;border-radius:10px;">${name}</div>`, direction: 'top' }
-                    });
-                    map.add(marker);
-                    poiMarkers.push(marker);
-                    count++;
-                });
-
-                if (count > 0) {
-                    map.setFitView(poiMarkers);
-                    showStatus(`成功标注 ${count} 个POI`, true);
-                } else {
-                    showStatus('未能解析POI，请检查格式：名称：lng,lat', false);
-                }
-            }
-            
-            map.on('click', function (e) {
-                if (!pickMode || !e || !e.lnglat) return;
-                setPickedCoord([e.lnglat.getLng(), e.lnglat.getLat()]);
-            });
-
-            // 标签切换逻辑
-            document.querySelectorAll('.tab').forEach(tab => {
-                tab.addEventListener('click', function() {
-                    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-                    document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
-                    this.classList.add('active');
-                    const tabId = this.getAttribute('data-tab');
-                    document.getElementById(tabId + '-tab').classList.add('active');
-                    currentTab = tabId;
-                    updateCurrentTabIndicator();
-                });
-            });
-
-            ['points', 'lines', 'polygon'].forEach(type => {
-                document.getElementById(type + '-input').addEventListener('input', function() {
-                    updateFormatIndicator(type === 'polygon' ? 'polygons' : type);
-                });
-            });
-
-            function updateCurrentTabIndicator() {
-                const tabNames = { 'points': '点数据', 'lines': '线数据', 'polygons': '多边形数据' };
-                document.getElementById('current-tab-indicator').innerHTML = `当前选中: <strong>${tabNames[currentTab]}</strong>`;
-            }
-
-            function showCurrent() { 
-                if (currentTab === 'points') showPoints(); 
-                else if (currentTab === 'lines') showLines(); 
-                else if (currentTab === 'polygons') showPolygons(); 
-            }
-
-            function showAll() { 
-                showPoints(); 
-                showLines(); 
-                showPolygons(); 
-            }
-
-            // 点数据展示（支持 WKT/坐标串）
-            function showPoints() {
-                points.forEach(point => map.remove(point)); points = [];
-                var input = document.getElementById('points-input').value.trim();
-                if (!input) return;
-                try {
-                    extractCoordinatePairs(input).forEach(coord => {
-                        var point = new AMap.Marker({
-                            position: coord,
-                            icon: new AMap.Icon({
-                                size: new AMap.Size(8, 8),
-                                image: 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iOCIgIGhlaWdodD0iOCIgdmlld0JveD0iMCAwIDggOCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48Y2lyY2xlIGN4PSI0IiBjeT0iNCIgcj0iNCIgZmlsbD0iIzI4YTc0NSIvPjwvc3ZnPg==',
-                                anchor: 'center'
-                            })
-                        });
-                        map.add(point);
-                        points.push(point);
-                    });
-
-                    if (points.length > 0) {
-                        map.setFitView(points);
-                        showStatus(`成功添加 ${points.length} 个点`, true);
-                    } else {
-                        showStatus('未能解析点数据', false);
-                    }
-                } catch (e) { showStatus('解析点数据出错', false); }
-            }
-
-            // 线数据展示（支持 WKT/坐标串）
-            function showLines() {
-                lines.forEach(line => map.remove(line)); lines = [];
-                var input = document.getElementById('lines-input').value.trim();
-                if (!input) return;
-                
-                try {
-                    var format = detectFormat(input, 'lines');
-
-                    if (format === 'wkt') {
-                        var parts = input.match(/\([^()]+\)/g) || [];
-                        parts.forEach(part => {
-                            var coords = extractCoordinatePairs(part);
-                            if (coords.length > 1) {
-                                var line = new AMap.Polyline({ path: coords, strokeColor: '#3388FF', strokeWeight: 4 });
-                                map.add(line);
-                                lines.push(line);
-                            }
-                        });
-                    } else {
-                        var lineTexts = normalizeInputText(input).split(/\n+|;/).map(t => t.trim()).filter(Boolean);
-                        if (lineTexts.length <= 1) lineTexts = [input];
-                        lineTexts.forEach(text => {
-                            var coords = extractCoordinatePairs(text);
-                            if (coords.length > 1) {
-                                var line = new AMap.Polyline({ path: coords, strokeColor: '#3388FF', strokeWeight: 4 });
-                                map.add(line);
-                                lines.push(line);
-                            }
-                        });
-                    }
-
-                    if (lines.length > 0) {
-                        map.setFitView(lines);
-                        showStatus(`成功添加 ${lines.length} 条线`, true);
-                    } else {
-                        showStatus('未能解析线数据', false);
-                    }
-                } catch (e) { showStatus('解析线数据出错', false); }
-            }
-
-            // 多边形数据展示（支持 WKT/坐标串）
-            function showPolygons() {
-                polygons.forEach(p => map.remove(p)); polygons = [];
-                clearPolygonDiagnostics();
-                var validationEnabled = isPolygonValidationEnabled();
-                var input = document.getElementById('polygon-input').value.trim();
-                if (!input) { showStatus('输入为空', false); return; }
-
-                // 预处理文本：去除换行，标准化空格
-                var cleanInput = input.replace(/[\r\n]+/g, ' ').replace(/\s+/g, ' ').toUpperCase();
-                var count = 0;
-                var intersectionCount = 0;
-                var intersections = [];
-
-                try {
-                    // 解析坐标对的辅助函数 "x y, x y" -> [[x,y], [x,y]]
-                    function parseRing(str) { return normalizePolygonRing(extractCoordinatePairs(str)); }
-
-                    if (cleanInput.includes('MULTIPOLYGON')) {
-                        // 提取最外层括号内容
-                        var inner = cleanInput.substring(cleanInput.indexOf('((') + 1, cleanInput.lastIndexOf('))') + 2); // 粗略提取
-                        // 使用正则匹配 ((...)) 结构，解决 split 无法处理空格的问题
-                        // 正则含义：匹配 (( 开头，中间是非 ( 的字符，以 )) 结尾（处理单个不含洞的多边形）
-                        // 如果有洞（如 ((..), (..))），此正则需更复杂，但针对你的数据，以下逻辑足够：
-                        
-                        // 修复逻辑：使用正则 \)\s*,\s*\( 作为分隔符逻辑，或者直接抓取块
-                        // 针对 MULTIPOLYGON (((A)), ((B))) 格式
-                        var subPolys = inner.match(/\(\([^\(]+\)\)/g);
-
-                        if (subPolys) {
-                            subPolys.forEach(polyStr => {
-                                // 每个 polyStr 形如 ((x y, x y...))
-                                // AMap 支持直接传二维数组作为 path
-                                var ringStr = polyStr.match(/\([^)]+\)/g); // 提取环
-                                if (ringStr) {
-                                    var path = [];
-                                    ringStr.forEach(r => path.push(parseRing(r)));
-                                    
-                                    if (validationEnabled) intersections = intersections.concat(addPolygonWithDiagnostics(path));
-                                    else addPolygon(path);
-                                    count++;
-                                }
-                            });
-                        }
-                    } else if (cleanInput.includes('POLYGON')) {
-                        // 处理单个 POLYGON
-                        var ringStr = cleanInput.match(/\([^)]+\)/g);
-                        if (ringStr) {
-                            var path = [];
-                            ringStr.forEach(r => path.push(parseRing(r)));
-                            if (validationEnabled) intersections = intersections.concat(addPolygonWithDiagnostics(path));
-                            else addPolygon(path);
-                            count++;
-                        }
-                    } else {
-                        // 坐标串格式：
-                        // 1) 单个面：x,y;x,y;...（支持你提供的长坐标串）
-                        // 2) 多个面：用换行分隔不同面
-                        // 3) 洞：同一面内用 | 分隔外环与内环
-                        var normalized = normalizeInputText(input);
-                        var polygonTexts = normalized.split(/\n+/).map(t => t.trim()).filter(Boolean);
-                        if (polygonTexts.length === 0) polygonTexts = [normalized];
-
-                        polygonTexts.forEach(polyText => {
-                            var ringTexts = polyText.split('|').map(t => t.trim()).filter(Boolean);
-                            var path = ringTexts.map(parseRing).filter(ring => ring.length > 3);
-                            if (path.length > 0) {
-                                var polygonPath = path.length === 1 ? path[0] : path;
-                                if (validationEnabled) intersections = intersections.concat(addPolygonWithDiagnostics(polygonPath));
-                                else addPolygon(polygonPath);
-                                count++;
-                            }
-                        });
-                    }
-
-                    if (count > 0) {
-                        var message = `成功绘制 ${count} 个地块`;
-                        if (validationEnabled) {
-                            intersectionCount = intersections.length;
-                            if (intersectionCount > 0) message += `，检测到 ${intersectionCount} 处自相交`;
-                            else message += '，未检测到自相交';
-                        } else {
-                            message += '（未开启合法性检测）';
-                        }
-                        showStatus(message, true);
-                        if (validationEnabled) {
-                            renderIntersectionAlerts(intersections);
-                            intersectionAlerts = intersections;
-                            map.setFitView(polygons.concat(polygonDiagnostics));
-                        } else {
-                            renderIntersectionAlerts([]);
-                            intersectionAlerts = [];
-                            map.setFitView(polygons);
-                        }
-                    } else {
-                        showStatus('未能解析多边形数据', false);
-                    }
-                } catch (e) {
-                    console.error(e);
-                    showStatus('解析错误: ' + e.message, false);
-                }
-            }
-
-            function clearAll() {
-                points.forEach(p => map.remove(p)); points = [];
-                lines.forEach(l => map.remove(l)); lines = [];
-                polygons.forEach(p => map.remove(p)); polygons = [];
-                clearPoiMarkers();
-                clearPolygonDiagnostics(); // merge-resolved: clear diagnostics overlays and alerts together
-                if (pickedCoordMarker) { map.remove(pickedCoordMarker); pickedCoordMarker = null; }
-                var output = document.getElementById('picked-coord-output');
-                if (output) output.value = '';
-                showStatus('已清除所有图形', true);
-            }
-
-            function openToolPanel() {
-                var panel = document.getElementById('tool-panel');
-                var toggleBtn = document.getElementById('toggle-tool-panel-btn');
-                if (!panel || !toggleBtn) return;
-                panel.classList.remove('collapsed');
-                toggleBtn.title = '收起工具栏';
-                toggleBtn.setAttribute('aria-label', '收起工具栏');
-            }
-
-            function toggleToolPanel() {
-                var panel = document.getElementById('tool-panel');
-                var toggleBtn = document.getElementById('toggle-tool-panel-btn');
-                if (!panel || !toggleBtn) return;
-                panel.classList.toggle('collapsed');
-                var collapsed = panel.classList.contains('collapsed');
-                toggleBtn.title = collapsed ? '展开工具栏' : '收起工具栏';
-                toggleBtn.setAttribute('aria-label', collapsed ? '展开工具栏' : '收起工具栏');
-            }
-
-            var contextMenu = new AMap.ContextMenu();
-            contextMenu.addItem('⚙️ 展开工具栏', function() {
-                openToolPanel();
-            }, 0);
-
-            map.on('rightclick', function(e) {
-                if (!e || !e.lnglat) return;
-                contextMenu.open(map, e.lnglat);
-            });
-
-            document.getElementById('show-current-btn').addEventListener('click', showCurrent);
-            document.getElementById('show-all-btn').addEventListener('click', showAll);
-            document.getElementById('clear-all-btn').addEventListener('click', clearAll);
-            document.getElementById('toggle-tool-panel-btn').addEventListener('click', toggleToolPanel);
-            document.getElementById('toggle-pick-btn').addEventListener('click', function () { setPickMode(!pickMode); });
-            document.getElementById('copy-coord-btn').addEventListener('click', copyPickedCoord);
-            document.getElementById('show-poi-btn').addEventListener('click', showPoiMarkers);
-            document.getElementById('clear-poi-btn').addEventListener('click', function () { clearPoiMarkers(); showStatus('已清除POI标注', true); });
-
-            setTimeout(function() { 
-                updateCurrentTabIndicator();
-                updateFormatIndicator('points');
-                updateFormatIndicator('lines');
-                updateFormatIndicator('polygons');
-                showAll();
-            }, 500);
+            result.push(holes.length ? [exterior].concat(holes) : exterior);
         });
-    </script>
+        return result;
+    }
+
+    function splitPolygonBlocks(text) {
+        var normalized = normalizeInputText(text).trim();
+        if (!normalized) return [];
+        if (normalized.indexOf('||') >= 0) {
+            return normalized.split(/\s*\|\|\s*/).map(function (t) { return t.trim(); }).filter(Boolean);
+        }
+        var lines = normalized.split(/\n+/).map(function (t) { return t.trim(); }).filter(Boolean);
+        return lines.length ? lines : [normalized];
+    }
+
+    function parseCoordinatePolygonInput(text) {
+        var blocks = splitPolygonBlocks(text);
+        var polygonPaths = [];
+        blocks.forEach(function (block) {
+            var ringTexts = block.split('|').map(function (t) { return t.trim(); }).filter(Boolean);
+            var rings = ringTexts.map(function (rt) {
+                return normalizePolygonRing(extractCoordinatePairs(rt));
+            }).filter(function (ring) { return ring.length > 3; });
+            groupRingsIntoPolygons(rings).forEach(function (path) { polygonPaths.push(path); });
+        });
+        return polygonPaths;
+    }
+
+    function tryExtractFromJson(input) {
+        var trimmed = (input || '').trim();
+        if (!/^[\[{]/.test(trimmed)) return null;
+        try {
+            var data = JSON.parse(trimmed);
+            var items = Array.isArray(data) ? data : [data];
+            var chunks = [];
+            items.forEach(function (item) {
+                if (!item || typeof item !== 'object') return;
+                var border = item.position_border || item.area || item.city_boundaries_gcj02 || '';
+                if (border) {
+                    var label = item.city_name || item.city_code || '边界';
+                    chunks.push('# ' + label + '\n' + String(border).trim());
+                }
+            });
+            return chunks.length ? chunks.join('\n\n') : null;
+        } catch (e) {
+            return null;
+        }
+    }
+
+    function resolvePolygonInput(rawInput) {
+        var extracted = tryExtractFromJson(rawInput);
+        return extracted || rawInput;
+    }
+
+    function getPolygonStyle(colorIndex) {
+        var palette = POLYGON_COLORS[colorIndex % POLYGON_COLORS.length];
+        return {
+            strokeColor: palette.stroke,
+            strokeWeight: 3,
+            strokeOpacity: 0.85,
+            fillColor: palette.fill,
+            fillOpacity: colorIndex === 0 ? 0.35 : 0.28
+        };
+    }
+
+    function clearPolygonDiagnostics() {
+        polygonDiagnostics.forEach(function (item) { map.remove(item); });
+        polygonDiagnostics = [];
+        intersectionAlerts = [];
+        renderIntersectionAlerts([]);
+    }
+
+    function formatCoord(coord) { return coord[0].toFixed(6) + ', ' + coord[1].toFixed(6); }
+
+    function renderIntersectionAlerts(items) {
+        var panel = document.getElementById('intersection-panel');
+        var title = document.getElementById('intersection-panel-title');
+        var list = document.getElementById('intersection-list');
+        if (!panel || !list || !title) return;
+        list.innerHTML = '';
+        if (!items || !items.length) { panel.style.display = 'none'; return; }
+        title.textContent = '⚠️ 检测到 ' + items.length + ' 处原始连线自相交（图面编号已标注），点击可定位异常线段：';
+        items.forEach(function (item, index) {
+            var li = document.createElement('li');
+            var button = document.createElement('button');
+            button.type = 'button';
+            button.className = 'intersection-link';
+            button.textContent = '图面编号#' + item.pointNo + '：线段[' + (item.segA + 1) + '] ' + formatCoord(item.a1) + ' → ' + formatCoord(item.a2) + ' 与 线段[' + (item.segB + 1) + '] ' + formatCoord(item.b1) + ' → ' + formatCoord(item.b2);
+            button.addEventListener('click', function () {
+                var overlays = [];
+                if (item.marker) overlays.push(item.marker);
+                if (item.segAOverlay) overlays.push(item.segAOverlay);
+                if (item.segBOverlay) overlays.push(item.segBOverlay);
+                if (overlays.length) map.setFitView(overlays);
+                else map.setZoomAndCenter(Math.max(map.getZoom(), 17), item.point);
+                showStatus('已定位到第 ' + (index + 1) + ' 处自相交', true);
+            });
+            li.appendChild(button);
+            list.appendChild(li);
+        });
+        panel.style.display = 'block';
+    }
+
+    function segmentIntersection(a, b, c, d) {
+        var EPS = 1e-10;
+        function cross(p1, p2, p3) { return (p2[0] - p1[0]) * (p3[1] - p1[1]) - (p2[1] - p1[1]) * (p3[0] - p1[0]); }
+        function orient(p1, p2, p3) { var v = cross(p1, p2, p3); if (Math.abs(v) <= EPS) return 0; return v > 0 ? 1 : -1; }
+        function onSegment(p1, p2, q, tol) {
+            var T = typeof tol === 'number' ? tol : EPS;
+            return q[0] >= Math.min(p1[0], p2[0]) - T && q[0] <= Math.max(p1[0], p2[0]) + T && q[1] >= Math.min(p1[1], p2[1]) - T && q[1] <= Math.max(p1[1], p2[1]) + T;
+        }
+        function lineIntersection(p1, p2, p3, p4) {
+            var x1 = p1[0], y1 = p1[1], x2 = p2[0], y2 = p2[1], x3 = p3[0], y3 = p3[1], x4 = p4[0], y4 = p4[1];
+            var den = (x1 - x2) * (y3 - y4) - (y1 - y2) * (x3 - x4);
+            if (Math.abs(den) <= EPS) return null;
+            var det1 = x1 * y2 - y1 * x2, det2 = x3 * y4 - y3 * x4;
+            return [(det1 * (x3 - x4) - (x1 - x2) * det2) / den, (det1 * (y3 - y4) - (y1 - y2) * det2) / den];
+        }
+        var o1 = orient(a, b, c), o2 = orient(a, b, d), o3 = orient(c, d, a), o4 = orient(c, d, b);
+        if (o1 === 0 && onSegment(a, b, c)) return [c[0], c[1]];
+        if (o2 === 0 && onSegment(a, b, d)) return [d[0], d[1]];
+        if (o3 === 0 && onSegment(c, d, a)) return [a[0], a[1]];
+        if (o4 === 0 && onSegment(c, d, b)) return [b[0], b[1]];
+        if (o1 !== o2 && o3 !== o4) return lineIntersection(a, b, c, d);
+        return null;
+    }
+
+    function detectRingSelfIntersections(ring) {
+        if (!ring || ring.length < 4) return [];
+        var intersections = [], seen = new Set();
+        for (var i = 0; i < ring.length - 1; i++) {
+            for (var j = i + 1; j < ring.length - 1; j++) {
+                if (Math.abs(i - j) <= 1) continue;
+                if (i === 0 && j === ring.length - 2) continue;
+                var point = segmentIntersection(ring[i], ring[i + 1], ring[j], ring[j + 1]);
+                if (!point) continue;
+                var key = point[0].toFixed(10) + ',' + point[1].toFixed(10) + ':' + i + '-' + j;
+                if (seen.has(key)) continue;
+                seen.add(key);
+                intersections.push({ point: point, segA: i, segB: j, a1: ring[i], a2: ring[i + 1], b1: ring[j], b2: ring[j + 1] });
+            }
+        }
+        return intersections;
+    }
+
+    function highlightSelfIntersections(path) {
+        var rings = (path.length > 0 && Array.isArray(path[0][0])) ? path : [path];
+        var alerts = [], pointCounter = 0, pointMarkers = {}, pointLabels = {}, segmentOverlays = {};
+        function getSegmentOverlay(ring, ringIndex, segIndex) {
+            var key = ringIndex + ':' + segIndex;
+            if (segmentOverlays[key]) return segmentOverlays[key];
+            var segLine = new AMap.Polyline({ path: [ring[segIndex], ring[segIndex + 1]], strokeColor: '#ff3b30', strokeWeight: 6, strokeOpacity: 0.9, zIndex: 70 });
+            map.add(segLine); polygonDiagnostics.push(segLine); segmentOverlays[key] = segLine; return segLine;
+        }
+        rings.forEach(function (ring, ringIndex) {
+            detectRingSelfIntersections(ring).forEach(function (hit) {
+                var pointKey = hit.point[0].toFixed(7) + ',' + hit.point[1].toFixed(7);
+                var marker = pointMarkers[pointKey];
+                if (!marker) {
+                    marker = new AMap.CircleMarker({ center: hit.point, radius: 7, strokeColor: '#ff3b30', strokeWeight: 2, fillColor: '#ffd6d3', fillOpacity: 0.9, zIndex: 80 });
+                    map.add(marker); polygonDiagnostics.push(marker); pointMarkers[pointKey] = marker;
+                    pointCounter += 1;
+                    var label = new AMap.Marker({ position: hit.point, offset: new AMap.Pixel(10, -16), content: '<div style="background:#d92d20;color:#fff;border:2px solid #fff;border-radius:12px;padding:1px 7px;font-size:12px;font-weight:700;">#' + pointCounter + '</div>', zIndex: 90 });
+                    map.add(label); polygonDiagnostics.push(label);
+                    pointLabels[pointKey] = { no: pointCounter, overlay: label };
+                }
+                alerts.push({ point: hit.point, marker: marker, segA: hit.segA, segB: hit.segB, a1: hit.a1, a2: hit.a2, b1: hit.b1, b2: hit.b2, segAOverlay: getSegmentOverlay(ring, ringIndex, hit.segA), segBOverlay: getSegmentOverlay(ring, ringIndex, hit.segB), pointNo: pointLabels[pointKey] ? pointLabels[pointKey].no : '-' });
+            });
+        });
+        return alerts;
+    }
+
+    function addPolygonWithDiagnostics(path, colorIndex) {
+        var style = getPolygonStyle(colorIndex || 0);
+        var polygon = new AMap.Polygon(Object.assign({ path: path }, style));
+        map.add(polygon); polygons.push(polygon);
+        return highlightSelfIntersections(path);
+    }
+
+    function addPolygon(path, colorIndex) {
+        var style = getPolygonStyle(colorIndex || 0);
+        var polygon = new AMap.Polygon(Object.assign({ path: path }, style));
+        map.add(polygon); polygons.push(polygon);
+        return polygon;
+    }
+
+    function isPolygonValidationEnabled() {
+        var toggle = document.getElementById('polygon-validation-toggle');
+        return !!(toggle && toggle.checked);
+    }
+
+    function updateFormatIndicator(type) {
+        var inputElement = document.getElementById(type === 'polygons' ? 'polygon-input' : type + '-input');
+        var indicatorElement = document.getElementById(type === 'polygons' ? 'polygon-format-indicator' : type + '-format-indicator');
+        if (!inputElement || !indicatorElement) return;
+        var format = detectFormat(inputElement.value, type);
+        if (format === 'wkt') { indicatorElement.innerHTML = '检测到格式: <strong>WKT</strong>'; indicatorElement.className = 'format-indicator wkt'; }
+        else if (format === 'coords') { indicatorElement.innerHTML = '检测到格式: <strong>坐标串</strong>'; indicatorElement.className = 'format-indicator coords'; }
+        else if (format === 'json') { indicatorElement.innerHTML = '检测到格式: <strong>城市边界 JSON</strong>'; indicatorElement.className = 'format-indicator json'; }
+        else { indicatorElement.innerHTML = '格式: <strong>未知</strong>'; indicatorElement.className = 'format-indicator'; }
+    }
+
+    function showStatus(message, isSuccess) {
+        var statusElement = document.getElementById('status-message');
+        statusElement.textContent = message;
+        statusElement.className = 'status-message ' + (isSuccess ? 'status-success' : 'status-error');
+        statusElement.style.display = 'block';
+        setTimeout(function () { statusElement.style.display = 'none'; }, 6000);
+    }
+
+    function setPickMode(enabled) {
+        pickMode = enabled;
+        var btn = document.getElementById('toggle-pick-btn');
+        if (!btn) return;
+        btn.textContent = enabled ? '🛑 关闭戳点拾取' : '📍 开启戳点拾取';
+        btn.className = enabled ? 'btn-danger' : 'btn-warning';
+        showStatus(enabled ? '已开启戳点拾取' : '已关闭戳点拾取', true);
+    }
+
+    function setPickedCoord(coord) {
+        var output = document.getElementById('picked-coord-output');
+        if (output) output.value = coord[0].toFixed(6) + ',' + coord[1].toFixed(6);
+        if (pickedCoordMarker) map.remove(pickedCoordMarker);
+        pickedCoordMarker = new AMap.Marker({ position: coord, content: '<div style="background:#1f6feb;color:#fff;border-radius:10px;padding:2px 6px;font-size:11px;">拾取点</div>', offset: new AMap.Pixel(0, -8), zIndex: 120 });
+        map.add(pickedCoordMarker);
+    }
+
+    function copyPickedCoord() {
+        var output = document.getElementById('picked-coord-output');
+        if (!output || !output.value) { showStatus('暂无可复制坐标，请先戳点拾取', false); return; }
+        var text = output.value;
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(text).then(function () { showStatus('坐标已复制：' + text, true); });
+        } else { output.select(); document.execCommand('copy'); showStatus('坐标已复制：' + text, true); }
+    }
+
+    function clearPoiMarkers() { poiMarkers.forEach(function (m) { map.remove(m); }); poiMarkers = []; }
+
+    function showPoiMarkers() {
+        var input = document.getElementById('poi-input');
+        if (!input || !input.value.trim()) { showStatus('请先输入POI数据', false); return; }
+        clearPoiMarkers();
+        var count = 0;
+        normalizeInputText(input.value).split(/\n+/).map(function (t) { return t.trim(); }).filter(Boolean).forEach(function (line, idx) {
+            var parts = line.split(/[:：]/);
+            var name = parts.length > 1 ? parts[0].trim() : 'POI' + (idx + 1);
+            var coordText = parts.length > 1 ? parts.slice(1).join(':').trim() : parts[0].trim();
+            var coords = extractCoordinatePairs(coordText);
+            if (!coords.length) return;
+            var marker = new AMap.Marker({ position: coords[0], title: name, label: { content: '<div style="padding:2px 6px;background:#1f6feb;color:#fff;border-radius:10px;">' + name + '</div>', direction: 'top' } });
+            map.add(marker); poiMarkers.push(marker); count++;
+        });
+        if (count) { map.setFitView(poiMarkers); showStatus('成功标注 ' + count + ' 个POI', true); }
+        else showStatus('未能解析POI，请检查格式：名称：lng,lat', false);
+    }
+
+    map.on('click', function (e) { if (pickMode && e && e.lnglat) setPickedCoord([e.lnglat.getLng(), e.lnglat.getLat()]); });
+
+    document.querySelectorAll('.tab').forEach(function (tab) {
+        tab.addEventListener('click', function () {
+            document.querySelectorAll('.tab').forEach(function (t) { t.classList.remove('active'); });
+            document.querySelectorAll('.tab-content').forEach(function (c) { c.classList.remove('active'); });
+            this.classList.add('active');
+            currentTab = this.getAttribute('data-tab');
+            document.getElementById(currentTab + '-tab').classList.add('active');
+            updateCurrentTabIndicator();
+        });
+    });
+
+    ['points', 'lines', 'polygon'].forEach(function (type) {
+        document.getElementById(type + '-input').addEventListener('input', function () {
+            updateFormatIndicator(type === 'polygon' ? 'polygons' : type);
+        });
+    });
+
+    function updateCurrentTabIndicator() {
+        var tabNames = { points: '点数据', lines: '线数据', polygons: '多边形数据' };
+        document.getElementById('current-tab-indicator').innerHTML = '当前选中: <strong>' + tabNames[currentTab] + '</strong>';
+    }
+
+    function showCurrent() {
+        if (currentTab === 'points') showPoints();
+        else if (currentTab === 'lines') showLines();
+        else showPolygons();
+    }
+
+    function showAll() { showPoints(); showLines(); showPolygons(); }
+
+    function showPoints() {
+        points.forEach(function (point) { map.remove(point); }); points = [];
+        var input = document.getElementById('points-input').value.trim();
+        if (!input) return;
+        extractCoordinatePairs(input).forEach(function (coord) {
+            var point = new AMap.Marker({ position: coord });
+            map.add(point); points.push(point);
+        });
+        if (points.length) { map.setFitView(points); showStatus('成功添加 ' + points.length + ' 个点', true); }
+        else showStatus('未能解析点数据', false);
+    }
+
+    function showLines() {
+        lines.forEach(function (line) { map.remove(line); }); lines = [];
+        var input = document.getElementById('lines-input').value.trim();
+        if (!input) return;
+        var format = detectFormat(input, 'lines');
+        if (format === 'wkt') {
+            (input.match(/\([^()]+\)/g) || []).forEach(function (part) {
+                var coords = extractCoordinatePairs(part);
+                if (coords.length > 1) { var line = new AMap.Polyline({ path: coords, strokeColor: '#3388FF', strokeWeight: 4 }); map.add(line); lines.push(line); }
+            });
+        } else {
+            var lineTexts = normalizeInputText(input).split(/\n+|;/).map(function (t) { return t.trim(); }).filter(Boolean);
+            if (lineTexts.length <= 1) lineTexts = [input];
+            lineTexts.forEach(function (text) {
+                var coords = extractCoordinatePairs(text);
+                if (coords.length > 1) { var line = new AMap.Polyline({ path: coords, strokeColor: '#3388FF', strokeWeight: 4 }); map.add(line); lines.push(line); }
+            });
+        }
+        if (lines.length) { map.setFitView(lines); showStatus('成功添加 ' + lines.length + ' 条线', true); }
+        else showStatus('未能解析线数据', false);
+    }
+
+    function parseWktPolygons(cleanInput) {
+        var paths = [];
+        function parseRing(str) { return normalizePolygonRing(extractCoordinatePairs(str)); }
+        if (cleanInput.indexOf('MULTIPOLYGON') >= 0) {
+            var inner = cleanInput.substring(cleanInput.indexOf('((') + 1, cleanInput.lastIndexOf('))') + 2);
+            var subPolys = inner.match(/\(\([^\(]+\)\)/g) || [];
+            subPolys.forEach(function (polyStr) {
+                var ringStr = polyStr.match(/\([^)]+\)/g) || [];
+                if (!ringStr.length) return;
+                var path = ringStr.map(parseRing);
+                paths.push(path.length === 1 ? path[0] : path);
+            });
+        } else if (cleanInput.indexOf('POLYGON') >= 0) {
+            var ringStr = cleanInput.match(/\([^)]+\)/g) || [];
+            var path = ringStr.map(parseRing);
+            if (path.length) paths.push(path.length === 1 ? path[0] : path);
+        }
+        return paths;
+    }
+
+    function showPolygons() {
+        polygons.forEach(function (p) { map.remove(p); }); polygons = [];
+        clearPolygonDiagnostics();
+        var validationEnabled = isPolygonValidationEnabled();
+        var rawInput = document.getElementById('polygon-input').value.trim();
+        if (!rawInput) { showStatus('输入为空', false); return; }
+
+        var input = resolvePolygonInput(rawInput);
+        var cleanInput = input.replace(/[\r\n]+/g, ' ').replace(/\s+/g, ' ').toUpperCase();
+        var count = 0, exclaveCount = 0, intersections = [];
+
+        try {
+            var polygonPaths = [];
+            if (cleanInput.indexOf('MULTIPOLYGON') >= 0 || cleanInput.indexOf('POLYGON') >= 0) {
+                polygonPaths = parseWktPolygons(cleanInput);
+            } else {
+                polygonPaths = parseCoordinatePolygonInput(input);
+            }
+
+            polygonPaths.forEach(function (polygonPath, idx) {
+                if (validationEnabled) intersections = intersections.concat(addPolygonWithDiagnostics(polygonPath, idx));
+                else addPolygon(polygonPath, idx);
+                count += 1;
+                if (idx > 0) exclaveCount += 1;
+            });
+
+            if (count > 0) {
+                var message = '成功绘制 ' + count + ' 个地块';
+                if (exclaveCount > 0) message += '（含 ' + exclaveCount + ' 块飞地/独立区域，橙/蓝等分色）';
+                if (validationEnabled) {
+                    if (intersections.length) message += '，检测到 ' + intersections.length + ' 处自相交';
+                    else message += '，未检测到自相交';
+                }
+                showStatus(message, true);
+                if (validationEnabled) {
+                    renderIntersectionAlerts(intersections);
+                    map.setFitView(polygons.concat(polygonDiagnostics));
+                } else {
+                    renderIntersectionAlerts([]);
+                    map.setFitView(polygons);
+                }
+            } else {
+                showStatus('未能解析多边形数据', false);
+            }
+        } catch (e) {
+            console.error(e);
+            showStatus('解析错误: ' + e.message, false);
+        }
+    }
+
+    function clearAll() {
+        points.forEach(function (p) { map.remove(p); }); points = [];
+        lines.forEach(function (l) { map.remove(l); }); lines = [];
+        polygons.forEach(function (p) { map.remove(p); }); polygons = [];
+        clearPoiMarkers(); clearPolygonDiagnostics();
+        if (pickedCoordMarker) { map.remove(pickedCoordMarker); pickedCoordMarker = null; }
+        var output = document.getElementById('picked-coord-output');
+        if (output) output.value = '';
+        showStatus('已清除所有图形', true);
+    }
+
+    function extractJsonBorders() {
+        var ta = document.getElementById('polygon-input');
+        var extracted = tryExtractFromJson(ta.value);
+        if (!extracted) { showStatus('未识别为 JSON，或缺少 position_border / area 字段', false); return; }
+        ta.value = extracted;
+        updateFormatIndicator('polygons');
+        showPolygons();
+    }
+
+    function loadLangfangSample() {
+        function applySample(lf) {
+            if (!lf || !lf.position_border) throw new Error('缺少 position_border');
+            document.getElementById('polygon-input').value = JSON.stringify(lf, null, 2);
+            updateFormatIndicator('polygons');
+            showPolygons();
+            showStatus('已加载廊坊边界（含 | 分隔飞地）', true);
+        }
+
+        fetch('./samples/langfang_131000.json')
+            .then(function (res) {
+                if (res.ok) return res.json();
+                return fetch('../../AOI更新/城市自相交/城市边界修改_修复后.json').then(function (res2) {
+                    if (!res2.ok) throw new Error('HTTP ' + res2.status);
+                    return res2.json().then(function (data) {
+                        return (Array.isArray(data) ? data : []).find(function (x) {
+                            return String(x.city_code) === '131000';
+                        });
+                    });
+                });
+            })
+            .then(applySample)
+            .catch(function (err) {
+                showStatus('示例加载失败：' + err.message + '。请手动粘贴 JSON 或坐标串。', false);
+            });
+    }
+
+    function toggleToolPanel() {
+        var panel = document.getElementById('tool-panel');
+        var toggleBtn = document.getElementById('toggle-tool-panel-btn');
+        panel.classList.toggle('collapsed');
+        var collapsed = panel.classList.contains('collapsed');
+        toggleBtn.title = collapsed ? '展开工具栏' : '收起工具栏';
+    }
+
+    var contextMenu = new AMap.ContextMenu();
+    contextMenu.addItem('⚙️ 展开工具栏', function () {
+        document.getElementById('tool-panel').classList.remove('collapsed');
+    }, 0);
+    map.on('rightclick', function (e) { if (e && e.lnglat) contextMenu.open(map, e.lnglat); });
+
+    document.getElementById('show-current-btn').addEventListener('click', showCurrent);
+    document.getElementById('show-all-btn').addEventListener('click', showAll);
+    document.getElementById('clear-all-btn').addEventListener('click', clearAll);
+    document.getElementById('extract-json-btn').addEventListener('click', extractJsonBorders);
+    document.getElementById('load-langfang-btn').addEventListener('click', loadLangfangSample);
+    document.getElementById('toggle-tool-panel-btn').addEventListener('click', toggleToolPanel);
+    document.getElementById('toggle-pick-btn').addEventListener('click', function () { setPickMode(!pickMode); });
+    document.getElementById('copy-coord-btn').addEventListener('click', copyPickedCoord);
+    document.getElementById('show-poi-btn').addEventListener('click', showPoiMarkers);
+    document.getElementById('clear-poi-btn').addEventListener('click', function () { clearPoiMarkers(); showStatus('已清除POI标注', true); });
+
+    updateCurrentTabIndicator();
+    updateFormatIndicator('points');
+    updateFormatIndicator('lines');
+    updateFormatIndicator('polygons');
+});
+
+</script>
 </body>
 </html>
