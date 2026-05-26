@@ -110,6 +110,10 @@
                     <input type="checkbox" id="polygon-validation-toggle">
                     <span>开启多边形合法性检测（默认关闭）</span>
                 </label>
+                <label class="validation-toggle" for="satellite-layer-toggle">
+                    <input type="checkbox" id="satellite-layer-toggle">
+                    <span>显示卫星影像（参考图层，叠加在底图之上）</span>
+                </label>
             </div>
             <div class="tab-content" id="points-tab">
                 <div class="format-indicator" id="points-format-indicator">检测到格式: <strong>WKT</strong></div>
@@ -169,10 +173,13 @@
         </div>
     </div>
     <script src="https://cache.amap.com/lbs/static/es5.min.js"></script>
-    <script src="https://webapi.amap.com/maps?v=2.0&key=1cf9fc45df860df45e87af1230f5da74"></script>
+    <script src="https://webapi.amap.com/maps?v=2.0&key=1cf9fc45df860df45e87af1230f5da74&plugin=AMap.TileLayer.Satellite,AMap.TileLayer.RoadNet"></script>
     <script>
 document.addEventListener('DOMContentLoaded', function () {
     var map = new AMap.Map('container', { zoom: 8, center: [116.704, 39.52], viewMode: '3D' });
+    var satelliteLayer = new AMap.TileLayer.Satellite({ zIndex: 1, opacity: 1 });
+    var roadNetLayer = new AMap.TileLayer.RoadNet({ zIndex: 2, opacity: 0.85 });
+    var satelliteLayerOn = false;
     var points = [], lines = [], polygons = [], poiMarkers = [], polygonDiagnostics = [], intersectionAlerts = [];
     var pickedCoordMarker = null, pickMode = false, currentTab = 'polygons';
     var POLYGON_COLORS = [
@@ -712,6 +719,15 @@ document.addEventListener('DOMContentLoaded', function () {
             });
     }
 
+    function setSatelliteLayer(enabled) {
+        satelliteLayerOn = !!enabled;
+        if (satelliteLayerOn) {
+            map.add([satelliteLayer, roadNetLayer]);
+        } else {
+            map.remove([satelliteLayer, roadNetLayer]);
+        }
+    }
+
     function toggleToolPanel() {
         var panel = document.getElementById('tool-panel');
         var toggleBtn = document.getElementById('toggle-tool-panel-btn');
@@ -731,6 +747,9 @@ document.addEventListener('DOMContentLoaded', function () {
     document.getElementById('clear-all-btn').addEventListener('click', clearAll);
     document.getElementById('extract-json-btn').addEventListener('click', extractJsonBorders);
     document.getElementById('load-langfang-btn').addEventListener('click', loadLangfangSample);
+    document.getElementById('satellite-layer-toggle').addEventListener('change', function (e) {
+        setSatelliteLayer(e.target.checked);
+    });
     document.getElementById('toggle-tool-panel-btn').addEventListener('click', toggleToolPanel);
     document.getElementById('toggle-pick-btn').addEventListener('click', function () { setPickMode(!pickMode); });
     document.getElementById('copy-coord-btn').addEventListener('click', copyPickedCoord);
