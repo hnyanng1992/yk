@@ -114,22 +114,30 @@
                     <input type="checkbox" id="satellite-layer-toggle">
                     <span>显示卫星影像（参考图层，叠加在底图之上）</span>
                 </label>
+                <label class="validation-toggle" for="wgs84-to-gcj02-toggle">
+                    <input type="checkbox" id="wgs84-to-gcj02-toggle" checked>
+                    <span>输入为 WGS84/CGCS2000(4490)，展示时转 GCJ02（高德）</span>
+                </label>
+                <div class="main-button-group">
+                    <button class="btn-secondary" id="convert-to-gcj02-btn" type="button"><span>🔄</span> WGS84→GCJ02 写回输入框</button>
+                </div>
             </div>
             <div class="tab-content" id="points-tab">
                 <div class="format-indicator" id="points-format-indicator">检测到格式: <strong>WKT</strong></div>
                 <div class="input-item"><textarea id="points-input" placeholder="请输入点数据 (WKT或坐标串)">POINT (104.065603 30.641998)</textarea></div>
-                <div class="format-example">提示: 支持 POINT/MULTIPOINT 或坐标串格式</div>
+                <div class="format-example">提示: 支持 POINT/MULTIPOINT、坐标串或 GeoJSON（Feature / FeatureCollection）</div>
             </div>
             <div class="tab-content" id="lines-tab">
                 <div class="format-indicator" id="lines-format-indicator">检测到格式: <strong>WKT</strong></div>
                 <div class="input-item"><textarea id="lines-input" placeholder="请输入线数据 (WKT或坐标串)">MULTILINESTRING ((116.4279376 39.8443999,116.4278987 39.8444812,116.4278609 39.8445569))</textarea></div>
-                <div class="format-example">提示: 支持 LINESTRING/MULTILINESTRING 或坐标串格式</div>
+                <div class="format-example">提示: 支持 LINESTRING/MULTILINESTRING、坐标串或 GeoJSON（含 LineString 的 FeatureCollection）</div>
             </div>
             <div class="tab-content active" id="polygons-tab">
                 <div class="format-indicator" id="polygon-format-indicator">检测到格式: <strong>WKT</strong></div>
                 <div class="input-item"><textarea id="polygon-input" placeholder="支持 WKT / 坐标串 / 城市边界 JSON（含 position_border）"></textarea></div>
                 <div class="format-example">
                     坐标串：单面 <code>lng,lat;lng,lat;...</code><br>
+                    多个 AOI：每行一条 <code>POLYGON (...)</code> 或坐标块（换行 / <code>||</code> 分隔），自动分色<br>
                     飞地：块之间用 <code>||</code> 或换行；廊坊等也支持单 <code>|</code> 连接两块不相邻区域（自动识别为飞地，非洞）<br>
                     同面内洞：块内用 <code>|</code> 分隔外环与内环（内环落在外环内时识别为洞）<br>
                     也可直接粘贴 <code>城市边界修改_修复后.json</code>，点「提取 JSON 边界」
@@ -140,7 +148,7 @@
                 <div class="legend-title">图例说明</div>
                 <div class="legend-item"><div class="legend-point legend-point-color"></div><span>点数据</span></div>
                 <div class="legend-item"><div class="legend-color legend-line"></div><span>线数据</span></div>
-                <div class="legend-item"><div class="legend-color legend-polygon"></div><span>多边形（飞地与主体同色）</span></div>
+                <div class="legend-item"><div class="legend-color legend-polygon"></div><span>多边形（多个 AOI 分色；同一 AOI 飞地同色）</span></div>
                 <div class="legend-item"><div class="legend-color" style="background-color:#ff3b30;height:6px;"></div><span>自相交高亮</span></div>
             </div>
             <div class="intersection-panel" id="intersection-panel">
@@ -180,7 +188,7 @@ document.addEventListener('DOMContentLoaded', function () {
     var satelliteLayer = new AMap.TileLayer.Satellite({ zIndex: 1, opacity: 1 });
     var roadNetLayer = new AMap.TileLayer.RoadNet({ zIndex: 2, opacity: 0.85 });
     var satelliteLayerOn = false;
-    var points = [], lines = [], polygons = [], poiMarkers = [], polygonDiagnostics = [], intersectionAlerts = [];
+    var points = [], lines = [], lineLabels = [], polygons = [], poiMarkers = [], polygonDiagnostics = [], intersectionAlerts = [];
     var pickedCoordMarker = null, pickMode = false, currentTab = 'polygons';
     var POLYGON_COLORS = [
         { stroke: '#FF6B6B', fill: '#FF6B6B' },
@@ -194,10 +202,147 @@ document.addEventListener('DOMContentLoaded', function () {
         return (text || '').replace(/[，]/g, ',').replace(/[；]/g, ';').replace(/[｜]/g, '|').replace(/\u3000/g, ' ');
     }
 
+    function outOfChina(lng, lat) {
+        return !(lng > 73.66 && lng < 135.05 && lat > 18.0 && lat < 53.55);
+    }
+
+    function wgs84ToGcj02(lng, lat) {
+        if (outOfChina(lng, lat)) return [lng, lat];
+        var a = 6378245.0, ee = 0.00669342162296594323;
+        function transformLat(x, y) {
+            var ret = -100.0 + 2.0 * x + 3.0 * y + 0.2 * y * y + 0.1 * x * y + 0.2 * Math.sqrt(Math.abs(x));
+            ret += (20.0 * Math.sin(6.0 * x * Math.PI) + 20.0 * Math.sin(2.0 * x * Math.PI)) * 2.0 / 3.0;
+            ret += (20.0 * Math.sin(y * Math.PI) + 40.0 * Math.sin(y / 3.0 * Math.PI)) * 2.0 / 3.0;
+            ret += (160.0 * Math.sin(y / 12.0 * Math.PI) + 320 * Math.sin(y * Math.PI / 30.0)) * 2.0 / 3.0;
+            return ret;
+        }
+        function transformLng(x, y) {
+            var ret = 300.0 + x + 2.0 * y + 0.1 * x * x + 0.1 * x * y + 0.1 * Math.sqrt(Math.abs(x));
+            ret += (20.0 * Math.sin(6.0 * x * Math.PI) + 20.0 * Math.sin(2.0 * x * Math.PI)) * 2.0 / 3.0;
+            ret += (20.0 * Math.sin(x * Math.PI) + 40.0 * Math.sin(x / 3.0 * Math.PI)) * 2.0 / 3.0;
+            ret += (150.0 * Math.sin(x / 12.0 * Math.PI) + 300.0 * Math.sin(x / 30.0 * Math.PI)) * 2.0 / 3.0;
+            return ret;
+        }
+        var dlat = transformLat(lng - 105.0, lat - 35.0);
+        var dlng = transformLng(lng - 105.0, lat - 35.0);
+        var radlat = lat / 180.0 * Math.PI;
+        var magic = 1 - ee * Math.sin(radlat) * Math.sin(radlat);
+        var sqrtmagic = Math.sqrt(magic);
+        dlat = (dlat * 180.0) / ((a * (1 - ee)) / (magic * sqrtmagic) * Math.PI);
+        dlng = (dlng * 180.0) / (a / sqrtmagic * Math.cos(radlat) * Math.PI);
+        return [lng + dlng, lat + dlat];
+    }
+
+    function isWgs84LikeCrsName(name) {
+        if (!name) return false;
+        var s = String(name).toUpperCase();
+        return s.indexOf('4490') >= 0 || s.indexOf('4326') >= 0 || s.indexOf('CRS84') >= 0 ||
+            s.indexOf('WGS84') >= 0 || s.indexOf('WGS') >= 0;
+    }
+
+    function geoJsonDeclaresWgs84LikeCrs(data) {
+        if (!data || typeof data !== 'object') return false;
+        var crs = data.crs;
+        if (!crs) return false;
+        if (crs.properties && isWgs84LikeCrsName(crs.properties.name)) return true;
+        if (isWgs84LikeCrsName(crs.name)) return true;
+        return false;
+    }
+
+    function isWgs84ToGcj02Enabled() {
+        var toggle = document.getElementById('wgs84-to-gcj02-toggle');
+        return !!(toggle && toggle.checked);
+    }
+
+    function applyDisplayCoord(pair) {
+        if (!pair || !isWgs84ToGcj02Enabled()) return pair;
+        return wgs84ToGcj02(pair[0], pair[1]);
+    }
+
+    function syncWgs84ToggleFromInput(text) {
+        var toggle = document.getElementById('wgs84-to-gcj02-toggle');
+        if (!toggle || !text || !/^[\[{]/.test(text.trim())) return;
+        try {
+            var data = JSON.parse(text.trim());
+            if (hasCityBorderJson(data)) {
+                toggle.checked = false;
+                return;
+            }
+            if (isGeoJsonRoot(data) && geoJsonDeclaresWgs84LikeCrs(data)) {
+                toggle.checked = true;
+            }
+        } catch (e) { /* ignore */ }
+    }
+
+    function transformGeoJsonCoordsInPlace(coords) {
+        if (!coords || !coords.length) return;
+        if (typeof coords[0] === 'number') {
+            var gcj = wgs84ToGcj02(coords[0], coords[1]);
+            coords[0] = gcj[0];
+            coords[1] = gcj[1];
+            return;
+        }
+        coords.forEach(transformGeoJsonCoordsInPlace);
+    }
+
+    function transformGeoJsonObjectInPlace(obj) {
+        if (!obj || typeof obj !== 'object') return;
+        if (obj.coordinates) transformGeoJsonCoordsInPlace(obj.coordinates);
+        if (obj.geometry) transformGeoJsonObjectInPlace(obj.geometry);
+        if (obj.features) obj.features.forEach(transformGeoJsonObjectInPlace);
+        if (obj.geometries) obj.geometries.forEach(transformGeoJsonObjectInPlace);
+        if (obj.crs) delete obj.crs;
+    }
+
+    function getActiveTabInputElement() {
+        if (currentTab === 'points') return document.getElementById('points-input');
+        if (currentTab === 'lines') return document.getElementById('lines-input');
+        return document.getElementById('polygon-input');
+    }
+
+    function writeBackCurrentTabAsGcj02() {
+        var inputEl = getActiveTabInputElement();
+        if (!inputEl) return;
+        var val = (inputEl.value || '').trim();
+        if (!val) { showStatus('输入为空', false); return; }
+        var format = detectFormat(val, currentTab);
+        if (format === 'geojson') {
+            try {
+                var data = JSON.parse(val);
+                transformGeoJsonObjectInPlace(data);
+                inputEl.value = JSON.stringify(data, null, 2);
+                document.getElementById('wgs84-to-gcj02-toggle').checked = false;
+                updateFormatIndicator(currentTab === 'polygon' ? 'polygons' : currentTab);
+                showStatus('已将 GeoJSON 坐标写回为 GCJ02，展示时请关闭 WGS84 转换', true);
+            } catch (e) {
+                showStatus('JSON 解析失败: ' + e.message, false);
+            }
+            return;
+        }
+        if (format === 'coords' || format === 'wkt') {
+            var pairs = extractCoordinatePairs(val);
+            if (!pairs.length) { showStatus('未能解析坐标', false); return; }
+            var wasEnabled = isWgs84ToGcj02Enabled();
+            document.getElementById('wgs84-to-gcj02-toggle').checked = true;
+            var gcjPairs = pairs.map(function (p) { return applyDisplayCoord(p); });
+            document.getElementById('wgs84-to-gcj02-toggle').checked = wasEnabled;
+            inputEl.value = gcjPairs.map(function (p) { return p[0] + ',' + p[1]; }).join(';');
+            document.getElementById('wgs84-to-gcj02-toggle').checked = false;
+            updateFormatIndicator(currentTab === 'polygon' ? 'polygons' : currentTab);
+            showStatus('已将坐标串写回为 GCJ02', true);
+            return;
+        }
+        showStatus('当前格式不支持写回（城市边界 JSON 通常已是 GCJ02）', false);
+    }
+
     function detectFormat(input, type) {
         if (!input || input.trim() === '') return 'unknown';
         var normalized = normalizeInputText(input).trim();
-        if (/^[\[{]/.test(normalized)) return 'json';
+        if (/^[\[{]/.test(normalized)) {
+            var jsonFlavor = detectJsonFlavor(normalized);
+            if (jsonFlavor) return jsonFlavor;
+            return 'json';
+        }
         var text = normalized.toUpperCase();
         if (type === 'points' && (text.startsWith('MULTIPOINT') || text.startsWith('POINT'))) return 'wkt';
         if (type === 'lines' && (text.startsWith('MULTILINESTRING') || text.startsWith('LINESTRING'))) return 'wkt';
@@ -211,8 +356,10 @@ document.addEventListener('DOMContentLoaded', function () {
         var matches = normalized.match(/-?\d+(?:\.\d+)?\s*[, ]\s*-?\d+(?:\.\d+)?/g) || [];
         return matches.map(function (m) {
             var parts = m.trim().split(/[, ]+/);
-            return [parseFloat(parts[0]), parseFloat(parts[1])];
-        }).filter(function (pair) { return !isNaN(pair[0]) && !isNaN(pair[1]); });
+            var lng = parseFloat(parts[0]), lat = parseFloat(parts[1]);
+            if (isNaN(lng) || isNaN(lat)) return null;
+            return applyDisplayCoord([lng, lat]);
+        }).filter(Boolean);
     }
 
     function normalizePolygonRing(coords) {
@@ -309,6 +456,7 @@ document.addEventListener('DOMContentLoaded', function () {
         if (!/^[\[{]/.test(trimmed)) return null;
         try {
             var data = JSON.parse(trimmed);
+            if (isGeoJsonRoot(data)) return null;
             var items = Array.isArray(data) ? data : [data];
             var chunks = [];
             items.forEach(function (item) {
@@ -323,6 +471,126 @@ document.addEventListener('DOMContentLoaded', function () {
         } catch (e) {
             return null;
         }
+    }
+
+    function normalizeCoordPair(pair) {
+        if (!pair || !Array.isArray(pair) || pair.length < 2) return null;
+        var lng = parseFloat(pair[0]), lat = parseFloat(pair[1]);
+        if (isNaN(lng) || isNaN(lat)) return null;
+        return applyDisplayCoord([lng, lat]);
+    }
+
+    function isGeoJsonRoot(obj) {
+        if (!obj || typeof obj !== 'object') return false;
+        var t = obj.type;
+        if (t === 'FeatureCollection' || t === 'Feature' || t === 'GeometryCollection') return true;
+        var geomTypes = ['Point', 'MultiPoint', 'LineString', 'MultiLineString', 'Polygon', 'MultiPolygon'];
+        return geomTypes.indexOf(t) >= 0 && obj.coordinates != null;
+    }
+
+    function hasCityBorderJson(obj) {
+        var items = Array.isArray(obj) ? obj : [obj];
+        return items.some(function (item) {
+            return item && typeof item === 'object' &&
+                (item.position_border || item.area || item.city_boundaries_gcj02);
+        });
+    }
+
+    function detectJsonFlavor(normalized) {
+        try {
+            var data = JSON.parse(normalized);
+            if (isGeoJsonRoot(data)) return 'geojson';
+            if (hasCityBorderJson(data)) return 'city-json';
+        } catch (e) { /* ignore */ }
+        return null;
+    }
+
+    function getGeoJsonLabel(props) {
+        if (!props || typeof props !== 'object') return '';
+        return props.name || props.NAME || props.title || props.label || '';
+    }
+
+    function appendGeometryToGeoJsonBuckets(geom, props, buckets) {
+        if (!geom || !geom.type) return;
+        var label = getGeoJsonLabel(props);
+        var t = geom.type;
+        var coords = geom.coordinates;
+        if (t === 'Point') {
+            var p = normalizeCoordPair(coords);
+            if (p) buckets.points.push({ coords: [p], label: label });
+        } else if (t === 'MultiPoint') {
+            (coords || []).forEach(function (c) {
+                var pt = normalizeCoordPair(c);
+                if (pt) buckets.points.push({ coords: [pt], label: label });
+            });
+        } else if (t === 'LineString') {
+            var path = (coords || []).map(normalizeCoordPair).filter(Boolean);
+            if (path.length > 1) buckets.lines.push({ path: path, label: label });
+        } else if (t === 'MultiLineString') {
+            (coords || []).forEach(function (line) {
+                var linePath = (line || []).map(normalizeCoordPair).filter(Boolean);
+                if (linePath.length > 1) buckets.lines.push({ path: linePath, label: label });
+            });
+        } else if (t === 'Polygon') {
+            var rings = (coords || []).map(function (ring) {
+                return normalizePolygonRing((ring || []).map(normalizeCoordPair).filter(Boolean));
+            }).filter(function (ring) { return ring.length > 3; });
+            if (rings.length) buckets.polygons.push({ path: rings.length === 1 ? rings[0] : rings, label: label });
+        } else if (t === 'MultiPolygon') {
+            (coords || []).forEach(function (poly) {
+                var polyRings = (poly || []).map(function (ring) {
+                    return normalizePolygonRing((ring || []).map(normalizeCoordPair).filter(Boolean));
+                }).filter(function (ring) { return ring.length > 3; });
+                if (polyRings.length) buckets.polygons.push({ path: polyRings.length === 1 ? polyRings[0] : polyRings, label: label });
+            });
+        } else if (t === 'GeometryCollection') {
+            (geom.geometries || []).forEach(function (g) {
+                appendGeometryToGeoJsonBuckets(g, props, buckets);
+            });
+        }
+    }
+
+    function collectGeoJsonBuckets(root) {
+        var buckets = { points: [], lines: [], polygons: [] };
+        if (!root || typeof root !== 'object') return buckets;
+        if (root.type === 'FeatureCollection') {
+            (root.features || []).forEach(function (feature) {
+                if (feature && feature.geometry) {
+                    appendGeometryToGeoJsonBuckets(feature.geometry, feature.properties, buckets);
+                }
+            });
+            return buckets;
+        }
+        if (root.type === 'Feature') {
+            if (root.geometry) appendGeometryToGeoJsonBuckets(root.geometry, root.properties, buckets);
+            return buckets;
+        }
+        appendGeometryToGeoJsonBuckets(root, root.properties, buckets);
+        return buckets;
+    }
+
+    function tryParseGeoJsonInput(input) {
+        var trimmed = (input || '').trim();
+        if (!/^[\[{]/.test(trimmed)) return null;
+        try {
+            var data = JSON.parse(trimmed);
+            if (!isGeoJsonRoot(data)) return null;
+            var buckets = collectGeoJsonBuckets(data);
+            if (!buckets.points.length && !buckets.lines.length && !buckets.polygons.length) return null;
+            return buckets;
+        } catch (e) {
+            return null;
+        }
+    }
+
+    function addGeoJsonNameLabel(position, label) {
+        if (!label) return;
+        var marker = new AMap.Marker({
+            position: position,
+            label: { content: '<div style="padding:2px 6px;background:#3388FF;color:#fff;border-radius:10px;">' + label + '</div>', direction: 'top' }
+        });
+        map.add(marker);
+        lineLabels.push(marker);
     }
 
     function resolvePolygonInput(rawInput) {
@@ -474,7 +742,8 @@ document.addEventListener('DOMContentLoaded', function () {
         var format = detectFormat(inputElement.value, type);
         if (format === 'wkt') { indicatorElement.innerHTML = '检测到格式: <strong>WKT</strong>'; indicatorElement.className = 'format-indicator wkt'; }
         else if (format === 'coords') { indicatorElement.innerHTML = '检测到格式: <strong>坐标串</strong>'; indicatorElement.className = 'format-indicator coords'; }
-        else if (format === 'json') { indicatorElement.innerHTML = '检测到格式: <strong>城市边界 JSON</strong>'; indicatorElement.className = 'format-indicator json'; }
+        else if (format === 'geojson') { indicatorElement.innerHTML = '检测到格式: <strong>GeoJSON</strong>'; indicatorElement.className = 'format-indicator json'; }
+        else if (format === 'city-json' || format === 'json') { indicatorElement.innerHTML = '检测到格式: <strong>城市边界 JSON</strong>'; indicatorElement.className = 'format-indicator json'; }
         else { indicatorElement.innerHTML = '格式: <strong>未知</strong>'; indicatorElement.className = 'format-indicator'; }
     }
 
@@ -547,6 +816,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
     ['points', 'lines', 'polygon'].forEach(function (type) {
         document.getElementById(type + '-input').addEventListener('input', function () {
+            syncWgs84ToggleFromInput(this.value);
             updateFormatIndicator(type === 'polygon' ? 'polygons' : type);
         });
     });
@@ -568,18 +838,40 @@ document.addEventListener('DOMContentLoaded', function () {
         points.forEach(function (point) { map.remove(point); }); points = [];
         var input = document.getElementById('points-input').value.trim();
         if (!input) return;
-        extractCoordinatePairs(input).forEach(function (coord) {
-            var point = new AMap.Marker({ position: coord });
-            map.add(point); points.push(point);
-        });
+        var geo = tryParseGeoJsonInput(input);
+        if (geo && geo.points.length) {
+            geo.points.forEach(function (item) {
+                item.coords.forEach(function (coord) {
+                    var point = new AMap.Marker({ position: coord, title: item.label || '' });
+                    map.add(point); points.push(point);
+                });
+            });
+        } else {
+            extractCoordinatePairs(input).forEach(function (coord) {
+                var point = new AMap.Marker({ position: coord });
+                map.add(point); points.push(point);
+            });
+        }
         if (points.length) { map.setFitView(points); showStatus('成功添加 ' + points.length + ' 个点', true); }
         else showStatus('未能解析点数据', false);
     }
 
     function showLines() {
         lines.forEach(function (line) { map.remove(line); }); lines = [];
+        lineLabels.forEach(function (marker) { map.remove(marker); }); lineLabels = [];
         var input = document.getElementById('lines-input').value.trim();
         if (!input) return;
+        var geo = tryParseGeoJsonInput(input);
+        if (geo && geo.lines.length) {
+            geo.lines.forEach(function (item) {
+                var line = new AMap.Polyline({ path: item.path, strokeColor: '#3388FF', strokeWeight: 4 });
+                map.add(line); lines.push(line);
+                addGeoJsonNameLabel(item.path[0], item.label);
+            });
+            if (lines.length) { map.setFitView(lines.concat(lineLabels)); showStatus('成功添加 ' + lines.length + ' 条线（GeoJSON）', true); }
+            else showStatus('未能解析线数据', false);
+            return;
+        }
         var format = detectFormat(input, 'lines');
         if (format === 'wkt') {
             (input.match(/\([^()]+\)/g) || []).forEach(function (part) {
@@ -596,6 +888,20 @@ document.addEventListener('DOMContentLoaded', function () {
         }
         if (lines.length) { map.setFitView(lines); showStatus('成功添加 ' + lines.length + ' 条线', true); }
         else showStatus('未能解析线数据', false);
+    }
+
+    function splitWktPolygonStatements(text) {
+        var normalized = normalizeInputText(text).trim();
+        if (!normalized) return [];
+        var lines = normalized.split(/\n+/).map(function (t) { return t.trim(); }).filter(Boolean);
+        if (lines.length > 1) {
+            var eachLineIsWkt = lines.every(function (line) {
+                return /^(MULTI)?POLYGON\s*\(/i.test(line);
+            });
+            if (eachLineIsWkt) return lines;
+        }
+        var parts = normalized.split(/(?=(?:MULTI)?POLYGON\s*\()/i).map(function (t) { return t.trim(); }).filter(Boolean);
+        return parts.length ? parts : [normalized];
     }
 
     function parseWktPolygons(cleanInput) {
@@ -627,14 +933,53 @@ document.addEventListener('DOMContentLoaded', function () {
         var rawInput = document.getElementById('polygon-input').value.trim();
         if (!rawInput) { showStatus('输入为空', false); return; }
 
+        var geoPolygons = tryParseGeoJsonInput(rawInput);
+        if (geoPolygons) {
+            if (geoPolygons.lines.length && !geoPolygons.polygons.length) {
+                showStatus('该 GeoJSON 为线要素（LineString），请切换到「线数据」页签后点击显示', false);
+                return;
+            }
+            if (geoPolygons.polygons.length) {
+                var geoCount = 0, geoIntersections = [];
+                geoPolygons.polygons.forEach(function (item, idx) {
+                    if (validationEnabled) geoIntersections = geoIntersections.concat(addPolygonWithDiagnostics(item.path, idx));
+                    else addPolygon(item.path, idx);
+                    geoCount += 1;
+                });
+                if (geoCount > 0) {
+                    var geoMessage = '成功绘制 ' + geoCount + ' 个面（GeoJSON）';
+                    if (validationEnabled) {
+                        if (geoIntersections.length) geoMessage += '，检测到 ' + geoIntersections.length + ' 处自相交';
+                        else geoMessage += '，未检测到自相交';
+                    }
+                    showStatus(geoMessage, true);
+                    if (validationEnabled) {
+                        renderIntersectionAlerts(geoIntersections);
+                        map.setFitView(polygons.concat(polygonDiagnostics));
+                    } else {
+                        renderIntersectionAlerts([]);
+                        map.setFitView(polygons);
+                    }
+                } else {
+                    showStatus('未能从 GeoJSON 解析出面数据', false);
+                }
+                return;
+            }
+        }
+
         var input = resolvePolygonInput(rawInput);
-        var cleanInput = input.replace(/[\r\n]+/g, ' ').replace(/\s+/g, ' ').toUpperCase();
+        var upperInput = input.replace(/\s+/g, ' ').toUpperCase();
         var count = 0, exclaveCount = 0, intersections = [];
 
         try {
             var polygonGroups = [];
-            if (cleanInput.indexOf('MULTIPOLYGON') >= 0 || cleanInput.indexOf('POLYGON') >= 0) {
-                polygonGroups = parseWktPolygons(cleanInput);
+            if (/POLYGON/.test(upperInput)) {
+                splitWktPolygonStatements(input).forEach(function (stmt) {
+                    var stmtClean = stmt.replace(/\s+/g, ' ').toUpperCase();
+                    parseWktPolygons(stmtClean).forEach(function (group) {
+                        polygonGroups.push(group);
+                    });
+                });
             } else {
                 polygonGroups = parseCoordinatePolygonInput(input);
             }
@@ -650,7 +995,11 @@ document.addEventListener('DOMContentLoaded', function () {
 
             if (count > 0) {
                 var message = '成功绘制 ' + count + ' 个地块';
-                if (exclaveCount > 0) message += '（含 ' + exclaveCount + ' 块飞地，与主体同色）';
+                if (polygonGroups.length > 1 && exclaveCount === 0) {
+                    message += '（' + polygonGroups.length + ' 个 AOI 分色展示）';
+                } else if (exclaveCount > 0) {
+                    message += '（含 ' + exclaveCount + ' 块飞地，与主体同色）';
+                }
                 if (validationEnabled) {
                     if (intersections.length) message += '，检测到 ' + intersections.length + ' 处自相交';
                     else message += '，未检测到自相交';
@@ -675,6 +1024,7 @@ document.addEventListener('DOMContentLoaded', function () {
     function clearAll() {
         points.forEach(function (p) { map.remove(p); }); points = [];
         lines.forEach(function (l) { map.remove(l); }); lines = [];
+        lineLabels.forEach(function (m) { map.remove(m); }); lineLabels = [];
         polygons.forEach(function (p) { map.remove(p); }); polygons = [];
         clearPoiMarkers(); clearPolygonDiagnostics();
         if (pickedCoordMarker) { map.remove(pickedCoordMarker); pickedCoordMarker = null; }
@@ -746,6 +1096,7 @@ document.addEventListener('DOMContentLoaded', function () {
     document.getElementById('show-all-btn').addEventListener('click', showAll);
     document.getElementById('clear-all-btn').addEventListener('click', clearAll);
     document.getElementById('extract-json-btn').addEventListener('click', extractJsonBorders);
+    document.getElementById('convert-to-gcj02-btn').addEventListener('click', writeBackCurrentTabAsGcj02);
     document.getElementById('load-langfang-btn').addEventListener('click', loadLangfangSample);
     document.getElementById('satellite-layer-toggle').addEventListener('change', function (e) {
         setSatelliteLayer(e.target.checked);
