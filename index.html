@@ -28,6 +28,11 @@
         .action-buttons { background: white; padding: 0 0 12px 0; margin: 0; flex-shrink: 0; display: flex; flex-direction: column; gap: 12px; }
         .validation-toggle { display: flex; align-items: center; gap: 8px; padding: 8px 10px; border: 1px solid #e6ebf2; border-radius: 6px; background: #f8fafc; font-size: 13px; color: #334155; }
         .validation-toggle input { width: 16px; height: 16px; }
+        .basemap-switch { display: flex; gap: 6px; padding: 8px 10px; border: 1px solid #e6ebf2; border-radius: 6px; background: #f8fafc; }
+        .basemap-btn { flex: 1; padding: 8px 10px; border: 1px solid #d4dbe6; border-radius: 6px; background: #fff; color: #334155; font-size: 13px; font-weight: 600; cursor: pointer; transition: all .2s; }
+        .basemap-btn:hover { background: #eef3f8; }
+        .basemap-btn.active { border-color: #3388FF; background: #e7f3ff; color: #1a5fb4; box-shadow: inset 0 0 0 1px #3388FF; }
+        .basemap-hint { font-size: 11px; color: #64748b; padding: 0 4px 4px; line-height: 1.4; }
         .main-button-group { display: flex; gap: 10px; margin: 0; flex-wrap: wrap; }
         .main-button-group button { flex: 1; min-width: 110px; padding: 12px; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; transition: all .3s; font-size: 14px; display: flex; align-items: center; justify-content: center; gap: 6px; }
         .btn-primary { background: #3388FF; color: white; }
@@ -110,16 +115,22 @@
                     <input type="checkbox" id="polygon-validation-toggle">
                     <span>开启多边形合法性检测（默认关闭）</span>
                 </label>
+                <div class="basemap-switch" role="group" aria-label="底图切换">
+                    <button type="button" class="basemap-btn active" data-basemap="amap">高德底图 (GCJ02)</button>
+                    <button type="button" class="basemap-btn" data-basemap="baidu">百度底图 (BD09)</button>
+                </div>
+                <div class="basemap-hint" id="basemap-hint">当前展示坐标系：GCJ02（与高德导航一致）</div>
                 <label class="validation-toggle" for="satellite-layer-toggle">
                     <input type="checkbox" id="satellite-layer-toggle">
                     <span>显示卫星影像（参考图层，叠加在底图之上）</span>
                 </label>
                 <label class="validation-toggle" for="wgs84-to-gcj02-toggle">
                     <input type="checkbox" id="wgs84-to-gcj02-toggle" checked>
-                    <span>输入为 WGS84/CGCS2000(4490)，展示时转 GCJ02（高德）</span>
+                    <span id="wgs84-toggle-label">输入为 WGS84/CGCS2000(4490)，展示时转 GCJ02（高德）</span>
                 </label>
                 <div class="main-button-group">
-                    <button class="btn-secondary" id="convert-to-gcj02-btn" type="button"><span>🔄</span> WGS84→GCJ02 写回输入框</button>
+                    <button class="btn-secondary" id="convert-to-gcj02-btn" type="button"><span>🔄</span> <span id="convert-coord-btn-label">WGS84→GCJ02 写回输入框</span></button>
+                    <button class="btn-secondary" id="convert-gcj02-to-bd09-btn" type="button" style="display:none;"><span>🔄</span> GCJ02→BD09 写回输入框</button>
                 </div>
             </div>
             <div class="tab-content" id="points-tab">
@@ -184,10 +195,301 @@
     <script src="https://webapi.amap.com/maps?v=2.0&key=1cf9fc45df860df45e87af1230f5da74&plugin=AMap.TileLayer.Satellite,AMap.TileLayer.RoadNet"></script>
     <script>
 document.addEventListener('DOMContentLoaded', function () {
-    var map = new AMap.Map('container', { zoom: 8, center: [116.704, 39.52], viewMode: '3D' });
-    var satelliteLayer = new AMap.TileLayer.Satellite({ zIndex: 1, opacity: 1 });
-    var roadNetLayer = new AMap.TileLayer.RoadNet({ zIndex: 2, opacity: 0.85 });
+    var CONFIG = {
+        BAIDU_AK: 'vzz9Wpy0k1X3D7zFW04sf7xBLxhR6iRx'
+    };
+    var currentBasemap = 'amap';
+    var map = null;
     var satelliteLayerOn = false;
+    var amapSatelliteLayer = null;
+    var amapRoadNetLayer = null;
+    var savedView = { center: [116.704, 39.52], zoom: 8 };
+    var baiduScriptPromise = null;
+
+    function loadBaiduMapScript() {
+        if (window.BMap) return Promise.resolve();
+        if (baiduScriptPromise) return baiduScriptPromise;
+        if (!CONFIG.BAIDU_AK || CONFIG.BAIDU_AK === 'YOUR_BAIDU_AK') {
+            return Promise.reject(new Error('请先在 index.html 的 CONFIG.BAIDU_AK 中配置百度地图 AK'));
+        }
+        baiduScriptPromise = new Promise(function (resolve, reject) {
+            var callbackName = 'onBMapReady_' + Date.now();
+            window[callbackName] = function () {
+                delete window[callbackName];
+                resolve();
+            };
+            var script = document.createElement('script');
+            script.src = 'https://api.map.baidu.com/api?v=3.0&ak=' + encodeURIComponent(CONFIG.BAIDU_AK) + '&callback=' + callbackName;
+            script.onerror = function () {
+                delete window[callbackName];
+                reject(new Error('百度地图脚本加载失败'));
+            };
+            document.head.appendChild(script);
+        });
+        return baiduScriptPromise;
+    }
+
+    function isBaiduBasemap() { return currentBasemap === 'baidu'; }
+
+    function getDisplayCrsName() { return isBaiduBasemap() ? 'BD09' : 'GCJ02'; }
+
+    function updateBasemapUi() {
+        document.querySelectorAll('.basemap-btn').forEach(function (btn) {
+            btn.classList.toggle('active', btn.getAttribute('data-basemap') === currentBasemap);
+        });
+        var hint = document.getElementById('basemap-hint');
+        var wgsLabel = document.getElementById('wgs84-toggle-label');
+        var convertLabel = document.getElementById('convert-coord-btn-label');
+        var gcjToBdBtn = document.getElementById('convert-gcj02-to-bd09-btn');
+        if (isBaiduBasemap()) {
+            if (hint) hint.textContent = '当前展示坐标系：BD09。BD09 原生数据请关闭 WGS84 转换；WGS84 数据请保持开启';
+            if (wgsLabel) wgsLabel.textContent = '输入为 WGS84/CGCS2000(4490)，展示时转 BD09（百度）';
+            if (convertLabel) convertLabel.textContent = 'WGS84→BD09 写回输入框';
+            if (gcjToBdBtn) gcjToBdBtn.style.display = '';
+        } else {
+            if (hint) hint.textContent = '当前展示坐标系：GCJ02（与高德导航一致）';
+            if (wgsLabel) wgsLabel.textContent = '输入为 WGS84/CGCS2000(4490)，展示时转 GCJ02（高德）';
+            if (convertLabel) convertLabel.textContent = 'WGS84→GCJ02 写回输入框';
+            if (gcjToBdBtn) gcjToBdBtn.style.display = 'none';
+        }
+    }
+
+    function createAmapAdapter(containerId, center, zoom) {
+        var rawMap = new AMap.Map(containerId, { zoom: zoom, center: center, viewMode: '3D' });
+        amapSatelliteLayer = new AMap.TileLayer.Satellite({ zIndex: 1, opacity: 1 });
+        amapRoadNetLayer = new AMap.TileLayer.RoadNet({ zIndex: 2, opacity: 0.85 });
+        var contextMenu = new AMap.ContextMenu();
+        return {
+            type: 'amap',
+            raw: rawMap,
+            add: function (overlay) { rawMap.add(overlay); return overlay; },
+            remove: function (overlay) { rawMap.remove(overlay); },
+            setFitView: function (overlays) { rawMap.setFitView(overlays); },
+            setZoomAndCenter: function (zoomLevel, centerPoint) { rawMap.setZoomAndCenter(zoomLevel, centerPoint); },
+            getZoom: function () { return rawMap.getZoom(); },
+            on: function (event, handler) { rawMap.on(event, handler); },
+            setSatellite: function (enabled) {
+                if (enabled) rawMap.add([amapSatelliteLayer, amapRoadNetLayer]);
+                else rawMap.remove([amapSatelliteLayer, amapRoadNetLayer]);
+            },
+            createContextMenu: function () { return contextMenu; },
+            openContextMenu: function (menu, lng, lat) { menu.open(rawMap, [lng, lat]); },
+            createMarker: function (position, options) {
+                return new AMap.Marker(Object.assign({ position: position }, options || {}));
+            },
+            createPolyline: function (path, options) {
+                return new AMap.Polyline(Object.assign({ path: path }, options || {}));
+            },
+            createPolygon: function (path, options) {
+                return new AMap.Polygon(Object.assign({ path: path }, options || {}));
+            },
+            createCircleMarker: function (center, options) {
+                return new AMap.CircleMarker(Object.assign({ center: center }, options || {}));
+            },
+            createHtmlMarker: function (position, html, offset, zIndex) {
+                return new AMap.Marker({
+                    position: position,
+                    content: html,
+                    offset: new AMap.Pixel(offset[0], offset[1]),
+                    zIndex: zIndex || 90
+                });
+            },
+            getClickCoord: function (e) {
+                return e && e.lnglat ? [e.lnglat.getLng(), e.lnglat.getLat()] : null;
+            },
+            destroy: function () { rawMap.destroy(); }
+        };
+    }
+
+    function ringsFromPath(path) {
+        if (!path || !path.length) return [];
+        if (typeof path[0][0] === 'number') return [path];
+        if (Array.isArray(path[0]) && typeof path[0][0][0] === 'number') return path;
+        return [path];
+    }
+
+    function pathToBaiduPoints(path) {
+        return ringsFromPath(path).map(function (ring) {
+            return ring.map(function (c) { return new BMap.Point(c[0], c[1]); });
+        });
+    }
+
+    function createBaiduAdapter(containerId, center, zoom) {
+        var rawMap = new BMap.Map(containerId);
+        rawMap.centerAndZoom(new BMap.Point(center[0], center[1]), zoom);
+        rawMap.enableScrollWheelZoom(true);
+        var contextMenu = new BMap.ContextMenu();
+        return {
+            type: 'baidu',
+            raw: rawMap,
+            add: function (overlay) { rawMap.addOverlay(overlay); return overlay; },
+            remove: function (overlay) { rawMap.removeOverlay(overlay); },
+            setFitView: function (overlays) {
+                var points = [];
+                (overlays || []).forEach(function (overlay) {
+                    if (!overlay) return;
+                    if (typeof overlay.getPath === 'function') {
+                        (overlay.getPath() || []).forEach(function (p) { points.push(p); });
+                    } else if (typeof overlay.getPosition === 'function') {
+                        var pos = overlay.getPosition();
+                        if (pos) points.push(pos);
+                    }
+                });
+                if (points.length) rawMap.setViewport(points);
+            },
+            setZoomAndCenter: function (zoomLevel, centerPoint) {
+                rawMap.centerAndZoom(new BMap.Point(centerPoint[0], centerPoint[1]), zoomLevel);
+            },
+            getZoom: function () { return rawMap.getZoom(); },
+            on: function (event, handler) {
+                if (event === 'click') rawMap.addEventListener('click', handler);
+                else if (event === 'rightclick') rawMap.addEventListener('rightclick', handler);
+            },
+            setSatellite: function (enabled) {
+                rawMap.setMapType(enabled ? BMAP_HYBRID_MAP : BMAP_NORMAL_MAP);
+            },
+            createContextMenu: function () { return contextMenu; },
+            openContextMenu: function (menu, lng, lat) { menu.open(new BMap.Point(lng, lat)); },
+            createMarker: function (position, options) {
+                var marker = new BMap.Marker(new BMap.Point(position[0], position[1]));
+                if (options && options.title) marker.setTitle(options.title);
+                if (options && options.label && options.label.content) {
+                    var label = new BMap.Label(options.label.content, {
+                        offset: new BMap.Size(0, -24)
+                    });
+                    label.setStyle({
+                        border: 'none',
+                        background: 'transparent'
+                    });
+                    marker.setLabel(label);
+                }
+                return marker;
+            },
+            createPolyline: function (path, options) {
+                var points = path.map(function (c) { return new BMap.Point(c[0], c[1]); });
+                return new BMap.Polyline(points, {
+                    strokeColor: (options && options.strokeColor) || '#3388FF',
+                    strokeWeight: (options && options.strokeWeight) || 4,
+                    strokeOpacity: (options && options.strokeOpacity) || 1
+                });
+            },
+            createPolygon: function (path, options) {
+                var rings = pathToBaiduPoints(path);
+                var style = {
+                    strokeColor: (options && options.strokeColor) || '#FF6B6B',
+                    strokeWeight: (options && options.strokeWeight) || 3,
+                    strokeOpacity: (options && options.strokeOpacity) || 0.85,
+                    fillColor: (options && options.fillColor) || '#FF6B6B',
+                    fillOpacity: (options && options.fillOpacity) || 0.35
+                };
+                if (rings.length === 1) return new BMap.Polygon(rings[0], style);
+                return new BMap.Polygon(rings, style);
+            },
+            createCircleMarker: function (center, options) {
+                return new BMap.Circle(new BMap.Point(center[0], center[1]), (options && options.radius) || 7, {
+                    strokeColor: (options && options.strokeColor) || '#ff3b30',
+                    strokeWeight: (options && options.strokeWeight) || 2,
+                    fillColor: (options && options.fillColor) || '#ffd6d3',
+                    fillOpacity: (options && options.fillOpacity) || 0.9
+                });
+            },
+            createHtmlMarker: function (position, html, offset) {
+                var marker = new BMap.Marker(new BMap.Point(position[0], position[1]));
+                var label = new BMap.Label(html, { offset: new BMap.Size(offset[0], offset[1]) });
+                label.setStyle({ border: 'none', background: 'transparent' });
+                marker.setLabel(label);
+                return marker;
+            },
+            getClickCoord: function (e) {
+                return e && e.point ? [e.point.lng, e.point.lat] : null;
+            },
+            destroy: function () { rawMap.clearOverlays(); }
+        };
+    }
+
+    function rememberMapView() {
+        if (!map || !map.raw) return;
+        if (currentBasemap === 'amap' && map.raw.getCenter) {
+            var c = map.raw.getCenter();
+            savedView = { center: [c.getLng(), c.getLat()], zoom: map.getZoom() };
+        } else if (currentBasemap === 'baidu' && map.raw.getCenter) {
+            var p = map.raw.getCenter();
+            savedView = { center: [p.lng, p.lat], zoom: map.getZoom() };
+        }
+    }
+
+    function bindMapEvents() {
+        map.on('click', function (e) {
+            var coord = map.getClickCoord(e);
+            if (pickMode && coord) setPickedCoord(coord);
+        });
+        map.on('rightclick', function (e) {
+            var coord = map.getClickCoord(e);
+            if (coord) map.openContextMenu(contextMenu, coord[0], coord[1]);
+        });
+    }
+
+    var contextMenu = null;
+
+    function initContextMenu() {
+        if (!map) return;
+        contextMenu = map.createContextMenu();
+        if (currentBasemap === 'amap') {
+            contextMenu.addItem('⚙️ 展开工具栏', function () {
+                document.getElementById('tool-panel').classList.remove('collapsed');
+            }, 0);
+        } else {
+            contextMenu.add(new BMap.MenuItem('⚙️ 展开工具栏', function () {
+                document.getElementById('tool-panel').classList.remove('collapsed');
+            }));
+        }
+    }
+
+    function initMap(basemap, keepView) {
+        var center = keepView ? savedView.center : [116.704, 39.52];
+        var zoom = keepView ? savedView.zoom : 8;
+        if (map) map.destroy();
+        map = basemap === 'baidu'
+            ? createBaiduAdapter('container', center, zoom)
+            : createAmapAdapter('container', center, zoom);
+        currentBasemap = basemap;
+        initContextMenu();
+        bindMapEvents();
+        if (satelliteLayerOn) map.setSatellite(true);
+        updateBasemapUi();
+    }
+
+    function switchBasemap(basemap) {
+        if (basemap === currentBasemap) return;
+        var hasGraphics = points.length || lines.length || polygons.length || poiMarkers.length;
+        var switchMap = function () {
+            rememberMapView();
+            initMap(basemap, true);
+            if (hasGraphics) redrawAllGraphics();
+            showStatus('已切换至' + (basemap === 'baidu' ? '百度' : '高德') + '底图（' + getDisplayCrsName() + '）', true);
+        };
+        if (basemap === 'baidu') {
+            loadBaiduMapScript().then(switchMap).catch(function (err) {
+                showStatus(err.message, false);
+            });
+        } else {
+            switchMap();
+        }
+    }
+
+    function redrawAllGraphics() {
+        var hadPoints = points.length > 0;
+        var hadLines = lines.length > 0;
+        var hadPolygons = polygons.length > 0;
+        var hadPoi = poiMarkers.length > 0;
+        clearAll(false);
+        if (hadPoints) showPoints();
+        if (hadLines) showLines();
+        if (hadPolygons) showPolygons();
+        if (hadPoi) showPoiMarkers();
+    }
+
+    initMap('amap', false);
     var points = [], lines = [], lineLabels = [], polygons = [], poiMarkers = [], polygonDiagnostics = [], intersectionAlerts = [];
     var pickedCoordMarker = null, pickMode = false, currentTab = 'polygons';
     var POLYGON_COLORS = [
@@ -233,6 +535,22 @@ document.addEventListener('DOMContentLoaded', function () {
         return [lng + dlng, lat + dlat];
     }
 
+    function gcj02ToBd09(lng, lat) {
+        var z = Math.sqrt(lng * lng + lat * lat) + 0.00002 * Math.sin(lat * Math.PI * 3000.0 / 180.0);
+        var theta = Math.atan2(lat, lng) + 0.000003 * Math.cos(lng * Math.PI * 3000.0 / 180.0);
+        return [z * Math.cos(theta) + 0.0065, z * Math.sin(theta) + 0.006];
+    }
+
+    function wgs84ToBd09(lng, lat) {
+        var gcj = wgs84ToGcj02(lng, lat);
+        return gcj02ToBd09(gcj[0], gcj[1]);
+    }
+
+    function transformCoordForDisplay(lng, lat) {
+        if (!isWgs84ToGcj02Enabled()) return [lng, lat];
+        return isBaiduBasemap() ? wgs84ToBd09(lng, lat) : wgs84ToGcj02(lng, lat);
+    }
+
     function isWgs84LikeCrsName(name) {
         if (!name) return false;
         var s = String(name).toUpperCase();
@@ -255,8 +573,8 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     function applyDisplayCoord(pair) {
-        if (!pair || !isWgs84ToGcj02Enabled()) return pair;
-        return wgs84ToGcj02(pair[0], pair[1]);
+        if (!pair) return pair;
+        return transformCoordForDisplay(pair[0], pair[1]);
     }
 
     function syncWgs84ToggleFromInput(text) {
@@ -277,9 +595,9 @@ document.addEventListener('DOMContentLoaded', function () {
     function transformGeoJsonCoordsInPlace(coords) {
         if (!coords || !coords.length) return;
         if (typeof coords[0] === 'number') {
-            var gcj = wgs84ToGcj02(coords[0], coords[1]);
-            coords[0] = gcj[0];
-            coords[1] = gcj[1];
+            var transformed = transformCoordForDisplay(coords[0], coords[1]);
+            coords[0] = transformed[0];
+            coords[1] = transformed[1];
             return;
         }
         coords.forEach(transformGeoJsonCoordsInPlace);
@@ -300,6 +618,69 @@ document.addEventListener('DOMContentLoaded', function () {
         return document.getElementById('polygon-input');
     }
 
+    function extractRawCoordinatePairs(text) {
+        var normalized = normalizeInputText(text);
+        var matches = normalized.match(/-?\d+(?:\.\d+)?\s*[, ]\s*-?\d+(?:\.\d+)?/g) || [];
+        return matches.map(function (m) {
+            var parts = m.trim().split(/[, ]+/);
+            var lng = parseFloat(parts[0]), lat = parseFloat(parts[1]);
+            if (isNaN(lng) || isNaN(lat)) return null;
+            return [lng, lat];
+        }).filter(Boolean);
+    }
+
+    function transformGeoJsonCoordsGcj02ToBd09InPlace(coords) {
+        if (!coords || !coords.length) return;
+        if (typeof coords[0] === 'number') {
+            var bd = gcj02ToBd09(coords[0], coords[1]);
+            coords[0] = bd[0];
+            coords[1] = bd[1];
+            return;
+        }
+        coords.forEach(transformGeoJsonCoordsGcj02ToBd09InPlace);
+    }
+
+    function writeBackCurrentTabGcj02ToBd09() {
+        var inputEl = getActiveTabInputElement();
+        if (!inputEl) return;
+        var val = (inputEl.value || '').trim();
+        if (!val) { showStatus('输入为空', false); return; }
+        var format = detectFormat(val, currentTab);
+        if (format === 'geojson') {
+            try {
+                var data = JSON.parse(val);
+                transformGeoJsonObjectGcj02ToBd09(data);
+                inputEl.value = JSON.stringify(data, null, 2);
+                document.getElementById('wgs84-to-gcj02-toggle').checked = false;
+                updateFormatIndicator(currentTab === 'polygon' ? 'polygons' : currentTab);
+                showStatus('已将 GeoJSON 坐标写回为 BD09，展示时请关闭 WGS84 转换', true);
+            } catch (e) {
+                showStatus('JSON 解析失败: ' + e.message, false);
+            }
+            return;
+        }
+        if (format === 'coords' || format === 'wkt') {
+            var pairs = extractRawCoordinatePairs(val);
+            if (!pairs.length) { showStatus('未能解析坐标', false); return; }
+            var bdPairs = pairs.map(function (p) { return gcj02ToBd09(p[0], p[1]); });
+            inputEl.value = bdPairs.map(function (p) { return p[0] + ',' + p[1]; }).join(';');
+            document.getElementById('wgs84-to-gcj02-toggle').checked = false;
+            updateFormatIndicator(currentTab === 'polygon' ? 'polygons' : currentTab);
+            showStatus('已将坐标串写回为 BD09', true);
+            return;
+        }
+        showStatus('当前格式不支持 GCJ02→BD09 写回', false);
+    }
+
+    function transformGeoJsonObjectGcj02ToBd09(obj) {
+        if (!obj || typeof obj !== 'object') return;
+        if (obj.coordinates) transformGeoJsonCoordsGcj02ToBd09InPlace(obj.coordinates);
+        if (obj.geometry) transformGeoJsonObjectGcj02ToBd09(obj.geometry);
+        if (obj.features) obj.features.forEach(transformGeoJsonObjectGcj02ToBd09);
+        if (obj.geometries) obj.geometries.forEach(transformGeoJsonObjectGcj02ToBd09);
+        if (obj.crs) delete obj.crs;
+    }
+
     function writeBackCurrentTabAsGcj02() {
         var inputEl = getActiveTabInputElement();
         if (!inputEl) return;
@@ -313,7 +694,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 inputEl.value = JSON.stringify(data, null, 2);
                 document.getElementById('wgs84-to-gcj02-toggle').checked = false;
                 updateFormatIndicator(currentTab === 'polygon' ? 'polygons' : currentTab);
-                showStatus('已将 GeoJSON 坐标写回为 GCJ02，展示时请关闭 WGS84 转换', true);
+                showStatus('已将 GeoJSON 坐标写回为 ' + getDisplayCrsName() + '，展示时请关闭 WGS84 转换', true);
             } catch (e) {
                 showStatus('JSON 解析失败: ' + e.message, false);
             }
@@ -329,7 +710,7 @@ document.addEventListener('DOMContentLoaded', function () {
             inputEl.value = gcjPairs.map(function (p) { return p[0] + ',' + p[1]; }).join(';');
             document.getElementById('wgs84-to-gcj02-toggle').checked = false;
             updateFormatIndicator(currentTab === 'polygon' ? 'polygons' : currentTab);
-            showStatus('已将坐标串写回为 GCJ02', true);
+            showStatus('已将坐标串写回为 ' + getDisplayCrsName(), true);
             return;
         }
         showStatus('当前格式不支持写回（城市边界 JSON 通常已是 GCJ02）', false);
@@ -585,8 +966,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
     function addGeoJsonNameLabel(position, label) {
         if (!label) return;
-        var marker = new AMap.Marker({
-            position: position,
+        var marker = map.createMarker(position, {
             label: { content: '<div style="padding:2px 6px;background:#3388FF;color:#fff;border-radius:10px;">' + label + '</div>', direction: 'top' }
         });
         map.add(marker);
@@ -695,7 +1075,7 @@ document.addEventListener('DOMContentLoaded', function () {
         function getSegmentOverlay(ring, ringIndex, segIndex) {
             var key = ringIndex + ':' + segIndex;
             if (segmentOverlays[key]) return segmentOverlays[key];
-            var segLine = new AMap.Polyline({ path: [ring[segIndex], ring[segIndex + 1]], strokeColor: '#ff3b30', strokeWeight: 6, strokeOpacity: 0.9, zIndex: 70 });
+            var segLine = map.createPolyline([ring[segIndex], ring[segIndex + 1]], { strokeColor: '#ff3b30', strokeWeight: 6, strokeOpacity: 0.9, zIndex: 70 });
             map.add(segLine); polygonDiagnostics.push(segLine); segmentOverlays[key] = segLine; return segLine;
         }
         rings.forEach(function (ring, ringIndex) {
@@ -703,10 +1083,10 @@ document.addEventListener('DOMContentLoaded', function () {
                 var pointKey = hit.point[0].toFixed(7) + ',' + hit.point[1].toFixed(7);
                 var marker = pointMarkers[pointKey];
                 if (!marker) {
-                    marker = new AMap.CircleMarker({ center: hit.point, radius: 7, strokeColor: '#ff3b30', strokeWeight: 2, fillColor: '#ffd6d3', fillOpacity: 0.9, zIndex: 80 });
+                    marker = map.createCircleMarker(hit.point, { radius: 7, strokeColor: '#ff3b30', strokeWeight: 2, fillColor: '#ffd6d3', fillOpacity: 0.9, zIndex: 80 });
                     map.add(marker); polygonDiagnostics.push(marker); pointMarkers[pointKey] = marker;
                     pointCounter += 1;
-                    var label = new AMap.Marker({ position: hit.point, offset: new AMap.Pixel(10, -16), content: '<div style="background:#d92d20;color:#fff;border:2px solid #fff;border-radius:12px;padding:1px 7px;font-size:12px;font-weight:700;">#' + pointCounter + '</div>', zIndex: 90 });
+                    var label = map.createHtmlMarker(hit.point, '<div style="background:#d92d20;color:#fff;border:2px solid #fff;border-radius:12px;padding:1px 7px;font-size:12px;font-weight:700;">#' + pointCounter + '</div>', [10, -16], 90);
                     map.add(label); polygonDiagnostics.push(label);
                     pointLabels[pointKey] = { no: pointCounter, overlay: label };
                 }
@@ -718,14 +1098,14 @@ document.addEventListener('DOMContentLoaded', function () {
 
     function addPolygonWithDiagnostics(path, colorIndex) {
         var style = getPolygonStyle(colorIndex || 0);
-        var polygon = new AMap.Polygon(Object.assign({ path: path }, style));
+        var polygon = map.createPolygon(path, style);
         map.add(polygon); polygons.push(polygon);
         return highlightSelfIntersections(path);
     }
 
     function addPolygon(path, colorIndex) {
         var style = getPolygonStyle(colorIndex || 0);
-        var polygon = new AMap.Polygon(Object.assign({ path: path }, style));
+        var polygon = map.createPolygon(path, style);
         map.add(polygon); polygons.push(polygon);
         return polygon;
     }
@@ -768,7 +1148,7 @@ document.addEventListener('DOMContentLoaded', function () {
         var output = document.getElementById('picked-coord-output');
         if (output) output.value = coord[0].toFixed(6) + ',' + coord[1].toFixed(6);
         if (pickedCoordMarker) map.remove(pickedCoordMarker);
-        pickedCoordMarker = new AMap.Marker({ position: coord, content: '<div style="background:#1f6feb;color:#fff;border-radius:10px;padding:2px 6px;font-size:11px;">拾取点</div>', offset: new AMap.Pixel(0, -8), zIndex: 120 });
+        pickedCoordMarker = map.createHtmlMarker(coord, '<div style="background:#1f6feb;color:#fff;border-radius:10px;padding:2px 6px;font-size:11px;">拾取点</div>', [0, -8], 120);
         map.add(pickedCoordMarker);
     }
 
@@ -794,14 +1174,22 @@ document.addEventListener('DOMContentLoaded', function () {
             var coordText = parts.length > 1 ? parts.slice(1).join(':').trim() : parts[0].trim();
             var coords = extractCoordinatePairs(coordText);
             if (!coords.length) return;
-            var marker = new AMap.Marker({ position: coords[0], title: name, label: { content: '<div style="padding:2px 6px;background:#1f6feb;color:#fff;border-radius:10px;">' + name + '</div>', direction: 'top' } });
+            var marker = map.createMarker(coords[0], { title: name, label: { content: '<div style="padding:2px 6px;background:#1f6feb;color:#fff;border-radius:10px;">' + name + '</div>', direction: 'top' } });
             map.add(marker); poiMarkers.push(marker); count++;
         });
         if (count) { map.setFitView(poiMarkers); showStatus('成功标注 ' + count + ' 个POI', true); }
         else showStatus('未能解析POI，请检查格式：名称：lng,lat', false);
     }
 
-    map.on('click', function (e) { if (pickMode && e && e.lnglat) setPickedCoord([e.lnglat.getLng(), e.lnglat.getLat()]); });
+    document.querySelectorAll('.basemap-btn').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            switchBasemap(btn.getAttribute('data-basemap'));
+        });
+    });
+
+    document.getElementById('wgs84-to-gcj02-toggle').addEventListener('change', function () {
+        if (points.length || lines.length || polygons.length || poiMarkers.length) redrawAllGraphics();
+    });
 
     document.querySelectorAll('.tab').forEach(function (tab) {
         tab.addEventListener('click', function () {
@@ -842,13 +1230,13 @@ document.addEventListener('DOMContentLoaded', function () {
         if (geo && geo.points.length) {
             geo.points.forEach(function (item) {
                 item.coords.forEach(function (coord) {
-                    var point = new AMap.Marker({ position: coord, title: item.label || '' });
+                    var point = map.createMarker(coord, { title: item.label || '' });
                     map.add(point); points.push(point);
                 });
             });
         } else {
             extractCoordinatePairs(input).forEach(function (coord) {
-                var point = new AMap.Marker({ position: coord });
+                var point = map.createMarker(coord);
                 map.add(point); points.push(point);
             });
         }
@@ -864,7 +1252,7 @@ document.addEventListener('DOMContentLoaded', function () {
         var geo = tryParseGeoJsonInput(input);
         if (geo && geo.lines.length) {
             geo.lines.forEach(function (item) {
-                var line = new AMap.Polyline({ path: item.path, strokeColor: '#3388FF', strokeWeight: 4 });
+                var line = map.createPolyline(item.path, { strokeColor: '#3388FF', strokeWeight: 4 });
                 map.add(line); lines.push(line);
                 addGeoJsonNameLabel(item.path[0], item.label);
             });
@@ -876,14 +1264,14 @@ document.addEventListener('DOMContentLoaded', function () {
         if (format === 'wkt') {
             (input.match(/\([^()]+\)/g) || []).forEach(function (part) {
                 var coords = extractCoordinatePairs(part);
-                if (coords.length > 1) { var line = new AMap.Polyline({ path: coords, strokeColor: '#3388FF', strokeWeight: 4 }); map.add(line); lines.push(line); }
+                if (coords.length > 1) { var line = map.createPolyline(coords, { strokeColor: '#3388FF', strokeWeight: 4 }); map.add(line); lines.push(line); }
             });
         } else {
             var lineTexts = normalizeInputText(input).split(/\n+|;/).map(function (t) { return t.trim(); }).filter(Boolean);
             if (lineTexts.length <= 1) lineTexts = [input];
             lineTexts.forEach(function (text) {
                 var coords = extractCoordinatePairs(text);
-                if (coords.length > 1) { var line = new AMap.Polyline({ path: coords, strokeColor: '#3388FF', strokeWeight: 4 }); map.add(line); lines.push(line); }
+                if (coords.length > 1) { var line = map.createPolyline(coords, { strokeColor: '#3388FF', strokeWeight: 4 }); map.add(line); lines.push(line); }
             });
         }
         if (lines.length) { map.setFitView(lines); showStatus('成功添加 ' + lines.length + ' 条线', true); }
@@ -1021,7 +1409,7 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     }
 
-    function clearAll() {
+    function clearAll(showMessage) {
         points.forEach(function (p) { map.remove(p); }); points = [];
         lines.forEach(function (l) { map.remove(l); }); lines = [];
         lineLabels.forEach(function (m) { map.remove(m); }); lineLabels = [];
@@ -1030,7 +1418,7 @@ document.addEventListener('DOMContentLoaded', function () {
         if (pickedCoordMarker) { map.remove(pickedCoordMarker); pickedCoordMarker = null; }
         var output = document.getElementById('picked-coord-output');
         if (output) output.value = '';
-        showStatus('已清除所有图形', true);
+        if (showMessage !== false) showStatus('已清除所有图形', true);
     }
 
     function extractJsonBorders() {
@@ -1071,11 +1459,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
     function setSatelliteLayer(enabled) {
         satelliteLayerOn = !!enabled;
-        if (satelliteLayerOn) {
-            map.add([satelliteLayer, roadNetLayer]);
-        } else {
-            map.remove([satelliteLayer, roadNetLayer]);
-        }
+        if (map) map.setSatellite(satelliteLayerOn);
     }
 
     function toggleToolPanel() {
@@ -1086,17 +1470,12 @@ document.addEventListener('DOMContentLoaded', function () {
         toggleBtn.title = collapsed ? '展开工具栏' : '收起工具栏';
     }
 
-    var contextMenu = new AMap.ContextMenu();
-    contextMenu.addItem('⚙️ 展开工具栏', function () {
-        document.getElementById('tool-panel').classList.remove('collapsed');
-    }, 0);
-    map.on('rightclick', function (e) { if (e && e.lnglat) contextMenu.open(map, e.lnglat); });
-
     document.getElementById('show-current-btn').addEventListener('click', showCurrent);
     document.getElementById('show-all-btn').addEventListener('click', showAll);
     document.getElementById('clear-all-btn').addEventListener('click', clearAll);
     document.getElementById('extract-json-btn').addEventListener('click', extractJsonBorders);
     document.getElementById('convert-to-gcj02-btn').addEventListener('click', writeBackCurrentTabAsGcj02);
+    document.getElementById('convert-gcj02-to-bd09-btn').addEventListener('click', writeBackCurrentTabGcj02ToBd09);
     document.getElementById('load-langfang-btn').addEventListener('click', loadLangfangSample);
     document.getElementById('satellite-layer-toggle').addEventListener('change', function (e) {
         setSatelliteLayer(e.target.checked);
