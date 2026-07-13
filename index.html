@@ -7,7 +7,9 @@
     <link rel="stylesheet" href="https://a.amap.com/jsapi_demos/static/demo-center/css/demo-center.css" />
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
-        html, body, #container { width: 100%; height: 100%; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; overflow: hidden; }
+        html, body { width: 100%; height: 100%; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; overflow: hidden; }
+        #map-root, #container-amap, #container-baidu { width: 100%; height: 100%; position: absolute; left: 0; top: 0; }
+        #container-baidu { display: none; }
         .control-panel { position: absolute; top: 20px; left: 20px; width: 420px; background: white; box-shadow: 0 4px 20px rgba(0,0,0,.15); border-radius: 12px; z-index: 10; max-height: 95vh; overflow-y: auto; display: flex; flex-direction: column; }
         .tool-panel { position: absolute; top: 20px; right: 20px; width: 360px; background: white; box-shadow: 0 4px 20px rgba(0,0,0,.12); border-radius: 12px; z-index: 10; max-height: 95vh; overflow-y: auto; padding: 14px; display: flex; flex-direction: column; gap: 12px; }
         .tool-panel-title { font-size: 14px; font-weight: 700; color: #2f3d4a; }
@@ -94,7 +96,10 @@
     </style>
 </head>
 <body>
-    <div id="container"></div>
+    <div id="map-root">
+        <div id="container-amap"></div>
+        <div id="container-baidu"></div>
+    </div>
     <div class="control-panel">
         <div class="panel-header"><h3>几何数据展示工具</h3></div>
         <div class="panel-content">
@@ -203,29 +208,55 @@ document.addEventListener('DOMContentLoaded', function () {
     };
     var currentBasemap = 'amap';
     var map = null;
+    var amapAdapter = null;
+    var baiduAdapter = null;
     var satelliteLayerOn = false;
     var amapSatelliteLayer = null;
     var amapRoadNetLayer = null;
-    var savedView = { center: [116.704, 39.52], zoom: 8 };
+    var savedView = { center: [116.704, 39.52], zoom: 8, crs: 'gcj02' };
     var baiduScriptPromise = null;
+    var contextMenu = null;
+    var mapEventsBound = { amap: false, baidu: false };
 
     function loadBaiduMapScript() {
-        if (window.BMap) return Promise.resolve();
+        if (window.BMap && window.BMap.Map) return Promise.resolve();
         if (baiduScriptPromise) return baiduScriptPromise;
         if (!CONFIG.BAIDU_AK || CONFIG.BAIDU_AK === 'YOUR_BAIDU_AK') {
             return Promise.reject(new Error('请先在 index.html 的 CONFIG.BAIDU_AK 中配置百度地图 AK'));
         }
         baiduScriptPromise = new Promise(function (resolve, reject) {
+            var settled = false;
             var callbackName = 'onBMapReady_' + Date.now();
-            window[callbackName] = function () {
+            var timer = setTimeout(function () {
+                if (settled) return;
+                settled = true;
                 delete window[callbackName];
+                baiduScriptPromise = null;
+                reject(new Error('百度地图脚本加载超时。请检查 AK 是否已把 maptool-pi.vercel.app 加入白名单'));
+            }, 12000);
+            window[callbackName] = function () {
+                if (settled) return;
+                settled = true;
+                clearTimeout(timer);
+                delete window[callbackName];
+                if (!window.BMap || !window.BMap.Map) {
+                    baiduScriptPromise = null;
+                    reject(new Error('百度地图 API 未就绪（BMap 不可用），请检查 AK 与域名白名单'));
+                    return;
+                }
                 resolve();
             };
             var script = document.createElement('script');
-            script.src = 'https://api.map.baidu.com/api?v=3.0&ak=' + encodeURIComponent(CONFIG.BAIDU_AK) + '&callback=' + callbackName;
+            // s=1 启用 https；部分环境下无 s=1 会加载失败
+            script.src = 'https://api.map.baidu.com/api?v=3.0&ak=' + encodeURIComponent(CONFIG.BAIDU_AK) +
+                '&s=1&callback=' + callbackName;
             script.onerror = function () {
+                if (settled) return;
+                settled = true;
+                clearTimeout(timer);
                 delete window[callbackName];
-                reject(new Error('百度地图脚本加载失败'));
+                baiduScriptPromise = null;
+                reject(new Error('百度地图脚本加载失败（网络或 AK 域名未授权）'));
             };
             document.head.appendChild(script);
         });
@@ -235,6 +266,13 @@ document.addEventListener('DOMContentLoaded', function () {
     function isBaiduBasemap() { return currentBasemap === 'baidu'; }
 
     function getDisplayCrsName() { return isBaiduBasemap() ? 'BD09' : 'GCJ02'; }
+
+    function setContainerVisible(basemap) {
+        var amapEl = document.getElementById('container-amap');
+        var baiduEl = document.getElementById('container-baidu');
+        if (amapEl) amapEl.style.display = basemap === 'amap' ? 'block' : 'none';
+        if (baiduEl) baiduEl.style.display = basemap === 'baidu' ? 'block' : 'none';
+    }
 
     function paintBasemapButton(btn, on) {
         if (!btn) return;
@@ -278,7 +316,10 @@ document.addEventListener('DOMContentLoaded', function () {
         var rawMap = new AMap.Map(containerId, { zoom: zoom, center: center, viewMode: '3D' });
         amapSatelliteLayer = new AMap.TileLayer.Satellite({ zIndex: 1, opacity: 1 });
         amapRoadNetLayer = new AMap.TileLayer.RoadNet({ zIndex: 2, opacity: 0.85 });
-        var contextMenu = new AMap.ContextMenu();
+        var menu = new AMap.ContextMenu();
+        menu.addItem('⚙️ 展开工具栏', function () {
+            document.getElementById('tool-panel').classList.remove('collapsed');
+        }, 0);
         return {
             type: 'amap',
             raw: rawMap,
@@ -292,8 +333,8 @@ document.addEventListener('DOMContentLoaded', function () {
                 if (enabled) rawMap.add([amapSatelliteLayer, amapRoadNetLayer]);
                 else rawMap.remove([amapSatelliteLayer, amapRoadNetLayer]);
             },
-            createContextMenu: function () { return contextMenu; },
-            openContextMenu: function (menu, lng, lat) { menu.open(rawMap, [lng, lat]); },
+            createContextMenu: function () { return menu; },
+            openContextMenu: function (menuObj, lng, lat) { menuObj.open(rawMap, [lng, lat]); },
             createMarker: function (position, options) {
                 return new AMap.Marker(Object.assign({ position: position }, options || {}));
             },
@@ -303,8 +344,8 @@ document.addEventListener('DOMContentLoaded', function () {
             createPolygon: function (path, options) {
                 return new AMap.Polygon(Object.assign({ path: path }, options || {}));
             },
-            createCircleMarker: function (center, options) {
-                return new AMap.CircleMarker(Object.assign({ center: center }, options || {}));
+            createCircleMarker: function (centerPt, options) {
+                return new AMap.CircleMarker(Object.assign({ center: centerPt }, options || {}));
             },
             createHtmlMarker: function (position, html, offset, zIndex) {
                 return new AMap.Marker({
@@ -317,7 +358,12 @@ document.addEventListener('DOMContentLoaded', function () {
             getClickCoord: function (e) {
                 return e && e.lnglat ? [e.lnglat.getLng(), e.lnglat.getLat()] : null;
             },
-            destroy: function () { rawMap.destroy(); }
+            clearOverlays: function () {
+                try { rawMap.clearMap(); } catch (e) { /* ignore */ }
+            },
+            destroy: function () {
+                try { rawMap.destroy(); } catch (e) { /* ignore */ }
+            }
         };
     }
 
@@ -335,27 +381,34 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     function createBaiduAdapter(containerId, center, zoom) {
-        var rawMap = new BMap.Map(containerId);
+        var rawMap = new BMap.Map(containerId, { enableMapClick: true });
         rawMap.centerAndZoom(new BMap.Point(center[0], center[1]), zoom);
         rawMap.enableScrollWheelZoom(true);
-        var contextMenu = new BMap.ContextMenu();
+        var menu = new BMap.ContextMenu();
+        menu.addItem(new BMap.MenuItem('⚙️ 展开工具栏', function () {
+            document.getElementById('tool-panel').classList.remove('collapsed');
+        }));
+        rawMap.addContextMenu(menu);
         return {
             type: 'baidu',
             raw: rawMap,
             add: function (overlay) { rawMap.addOverlay(overlay); return overlay; },
             remove: function (overlay) { rawMap.removeOverlay(overlay); },
             setFitView: function (overlays) {
-                var points = [];
+                var pts = [];
                 (overlays || []).forEach(function (overlay) {
                     if (!overlay) return;
                     if (typeof overlay.getPath === 'function') {
-                        (overlay.getPath() || []).forEach(function (p) { points.push(p); });
+                        (overlay.getPath() || []).forEach(function (p) { pts.push(p); });
                     } else if (typeof overlay.getPosition === 'function') {
                         var pos = overlay.getPosition();
-                        if (pos) points.push(pos);
+                        if (pos) pts.push(pos);
+                    } else if (typeof overlay.getCenter === 'function') {
+                        var c = overlay.getCenter();
+                        if (c) pts.push(c);
                     }
                 });
-                if (points.length) rawMap.setViewport(points);
+                if (pts.length) rawMap.setViewport(pts);
             },
             setZoomAndCenter: function (zoomLevel, centerPoint) {
                 rawMap.centerAndZoom(new BMap.Point(centerPoint[0], centerPoint[1]), zoomLevel);
@@ -368,8 +421,8 @@ document.addEventListener('DOMContentLoaded', function () {
             setSatellite: function (enabled) {
                 rawMap.setMapType(enabled ? BMAP_HYBRID_MAP : BMAP_NORMAL_MAP);
             },
-            createContextMenu: function () { return contextMenu; },
-            openContextMenu: function (menu, lng, lat) { menu.open(new BMap.Point(lng, lat)); },
+            createContextMenu: function () { return menu; },
+            openContextMenu: function () { /* Baidu uses map-bound context menu */ },
             createMarker: function (position, options) {
                 var marker = new BMap.Marker(new BMap.Point(position[0], position[1]));
                 if (options && options.title) marker.setTitle(options.title);
@@ -377,17 +430,14 @@ document.addEventListener('DOMContentLoaded', function () {
                     var label = new BMap.Label(options.label.content, {
                         offset: new BMap.Size(0, -24)
                     });
-                    label.setStyle({
-                        border: 'none',
-                        background: 'transparent'
-                    });
+                    label.setStyle({ border: 'none', background: 'transparent' });
                     marker.setLabel(label);
                 }
                 return marker;
             },
             createPolyline: function (path, options) {
-                var points = path.map(function (c) { return new BMap.Point(c[0], c[1]); });
-                return new BMap.Polyline(points, {
+                var pts = path.map(function (c) { return new BMap.Point(c[0], c[1]); });
+                return new BMap.Polyline(pts, {
                     strokeColor: (options && options.strokeColor) || '#3388FF',
                     strokeWeight: (options && options.strokeWeight) || 4,
                     strokeOpacity: (options && options.strokeOpacity) || 1
@@ -405,8 +455,8 @@ document.addEventListener('DOMContentLoaded', function () {
                 if (rings.length === 1) return new BMap.Polygon(rings[0], style);
                 return new BMap.Polygon(rings, style);
             },
-            createCircleMarker: function (center, options) {
-                return new BMap.Circle(new BMap.Point(center[0], center[1]), (options && options.radius) || 7, {
+            createCircleMarker: function (centerPt, options) {
+                return new BMap.Circle(new BMap.Point(centerPt[0], centerPt[1]), (options && options.radius) || 7, {
                     strokeColor: (options && options.strokeColor) || '#ff3b30',
                     strokeWeight: (options && options.strokeWeight) || 2,
                     fillColor: (options && options.fillColor) || '#ffd6d3',
@@ -423,96 +473,130 @@ document.addEventListener('DOMContentLoaded', function () {
             getClickCoord: function (e) {
                 return e && e.point ? [e.point.lng, e.point.lat] : null;
             },
-            destroy: function () { rawMap.clearOverlays(); }
+            clearOverlays: function () {
+                try { rawMap.clearOverlays(); } catch (e) { /* ignore */ }
+            },
+            destroy: function () {
+                try { rawMap.clearOverlays(); } catch (e) { /* ignore */ }
+            }
         };
+    }
+
+    function bd09ToGcj02(lng, lat) {
+        var x = lng - 0.0065;
+        var y = lat - 0.006;
+        var z = Math.sqrt(x * x + y * y) - 0.00002 * Math.sin(y * Math.PI * 3000.0 / 180.0);
+        var theta = Math.atan2(y, x) - 0.000003 * Math.cos(x * Math.PI * 3000.0 / 180.0);
+        return [z * Math.cos(theta), z * Math.sin(theta)];
     }
 
     function rememberMapView() {
         if (!map || !map.raw) return;
-        if (currentBasemap === 'amap' && map.raw.getCenter) {
+        if (map.type === 'amap' && map.raw.getCenter) {
             var c = map.raw.getCenter();
-            savedView = { center: [c.getLng(), c.getLat()], zoom: map.getZoom() };
-        } else if (currentBasemap === 'baidu' && map.raw.getCenter) {
+            savedView = { center: [c.getLng(), c.getLat()], zoom: map.getZoom(), crs: 'gcj02' };
+        } else if (map.type === 'baidu' && map.raw.getCenter) {
             var p = map.raw.getCenter();
-            savedView = { center: [p.lng, p.lat], zoom: map.getZoom() };
+            savedView = { center: [p.lng, p.lat], zoom: map.getZoom(), crs: 'bd09' };
         }
     }
 
-    function bindMapEvents() {
-        map.on('click', function (e) {
-            var coord = map.getClickCoord(e);
+    function centerForBasemap(basemap) {
+        var center = savedView.center.slice();
+        var from = savedView.crs || 'gcj02';
+        if (basemap === 'baidu' && from === 'gcj02') return gcj02ToBd09(center[0], center[1]);
+        if (basemap === 'amap' && from === 'bd09') return bd09ToGcj02(center[0], center[1]);
+        return center;
+    }
+
+    function bindMapEventsOnce(adapter) {
+        if (!adapter || mapEventsBound[adapter.type]) return;
+        adapter.on('click', function (e) {
+            if (map !== adapter) return;
+            var coord = adapter.getClickCoord(e);
             if (pickMode && coord) setPickedCoord(coord);
         });
-        map.on('rightclick', function (e) {
-            var coord = map.getClickCoord(e);
-            if (coord) map.openContextMenu(contextMenu, coord[0], coord[1]);
-        });
-    }
-
-    var contextMenu = null;
-
-    function initContextMenu() {
-        if (!map) return;
-        contextMenu = map.createContextMenu();
-        if (currentBasemap === 'amap') {
-            contextMenu.addItem('⚙️ 展开工具栏', function () {
-                document.getElementById('tool-panel').classList.remove('collapsed');
-            }, 0);
-        } else {
-            contextMenu.add(new BMap.MenuItem('⚙️ 展开工具栏', function () {
-                document.getElementById('tool-panel').classList.remove('collapsed');
-            }));
+        if (adapter.type === 'amap') {
+            adapter.on('rightclick', function (e) {
+                if (map !== adapter) return;
+                var coord = adapter.getClickCoord(e);
+                var menu = adapter.createContextMenu();
+                if (coord && menu) adapter.openContextMenu(menu, coord[0], coord[1]);
+            });
         }
+        mapEventsBound[adapter.type] = true;
     }
 
-    function initMap(basemap, keepView) {
-        var center = keepView ? savedView.center : [116.704, 39.52];
+    function ensureAmap(center, zoom) {
+        if (amapAdapter) return amapAdapter;
+        amapAdapter = createAmapAdapter('container-amap', center, zoom);
+        bindMapEventsOnce(amapAdapter);
+        return amapAdapter;
+    }
+
+    function ensureBaidu(center, zoom) {
+        if (baiduAdapter) return baiduAdapter;
+        baiduAdapter = createBaiduAdapter('container-baidu', center, zoom);
+        bindMapEventsOnce(baiduAdapter);
+        return baiduAdapter;
+    }
+
+    function activateBasemap(basemap, keepView) {
         var zoom = keepView ? savedView.zoom : 8;
-        if (map) {
-            try { map.destroy(); } catch (e) { /* ignore */ }
-            map = null;
-        }
-        var container = document.getElementById('container');
-        if (container) container.innerHTML = '';
-        map = basemap === 'baidu'
-            ? createBaiduAdapter('container', center, zoom)
-            : createAmapAdapter('container', center, zoom);
+        var center = keepView ? centerForBasemap(basemap) : [116.704, 39.52];
+        // 先显示目标容器，再初始化（百度地图在 display:none 容器里常初始化失败）
+        setContainerVisible(basemap);
+        map = basemap === 'baidu' ? ensureBaidu(center, zoom) : ensureAmap(center, zoom);
         currentBasemap = basemap;
-        initContextMenu();
-        bindMapEvents();
-        if (satelliteLayerOn) map.setSatellite(true);
+        map.setZoomAndCenter(zoom, center);
+        map.setSatellite(!!satelliteLayerOn);
+        if (basemap === 'baidu' && map.raw && map.raw.checkResize) {
+            setTimeout(function () { try { map.raw.checkResize(); } catch (e) { /* ignore */ } }, 50);
+        }
         updateBasemapUi();
+    }
+
+    function updateBasemapUiPending(basemap) {
+        paintBasemapButton(document.getElementById('basemap-amap-btn'), basemap === 'amap');
+        paintBasemapButton(document.getElementById('basemap-baidu-btn'), basemap === 'baidu');
     }
 
     function switchBasemap(basemap) {
         if (basemap === currentBasemap) return;
         var prevBasemap = currentBasemap;
-        var hasGraphics = points.length || lines.length || polygons.length || poiMarkers.length;
-        // 点击后立刻切换按钮高亮
-        currentBasemap = basemap;
-        updateBasemapUi();
-        var finish = function () {
+        rememberMapView();
+
+        var apply = function () {
             try {
-                // rememberMapView 需按旧底图读中心点
-                currentBasemap = prevBasemap;
-                rememberMapView();
-                initMap(basemap, true);
-                if (hasGraphics) redrawAllGraphics();
+                var hadPoints = points.length > 0;
+                var hadLines = lines.length > 0;
+                var hadPolygons = polygons.length > 0;
+                var hadPoi = poiMarkers.length > 0;
+                if (map && map.clearOverlays) map.clearOverlays();
+                points = []; lines = []; lineLabels = []; polygons = []; poiMarkers = [];
+                polygonDiagnostics = []; intersectionAlerts = [];
+                pickedCoordMarker = null;
+                activateBasemap(basemap, true);
+                if (hadPoints) showPoints();
+                if (hadLines) showLines();
+                if (hadPolygons) showPolygons();
+                if (hadPoi) showPoiMarkers();
                 showStatus('已切换至' + (basemap === 'baidu' ? '百度' : '高德') + '底图（' + getDisplayCrsName() + '）', true);
             } catch (err) {
-                currentBasemap = prevBasemap;
-                updateBasemapUi();
+                activateBasemap(prevBasemap, true);
                 showStatus('底图切换失败：' + (err && err.message ? err.message : String(err)), false);
             }
         };
+
         if (basemap === 'baidu') {
-            loadBaiduMapScript().then(finish).catch(function (err) {
+            updateBasemapUiPending('baidu');
+            loadBaiduMapScript().then(apply).catch(function (err) {
                 currentBasemap = prevBasemap;
                 updateBasemapUi();
                 showStatus(err.message, false);
             });
         } else {
-            finish();
+            apply();
         }
     }
 
@@ -528,9 +612,9 @@ document.addEventListener('DOMContentLoaded', function () {
         if (hadPoi) showPoiMarkers();
     }
 
-    initMap('amap', false);
     var points = [], lines = [], lineLabels = [], polygons = [], poiMarkers = [], polygonDiagnostics = [], intersectionAlerts = [];
     var pickedCoordMarker = null, pickMode = false, currentTab = 'polygons';
+    activateBasemap('amap', false);
     var POLYGON_COLORS = [
         { stroke: '#FF6B6B', fill: '#FF6B6B' },
         { stroke: '#FF9F43', fill: '#FF9F43' },
