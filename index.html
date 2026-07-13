@@ -30,14 +30,10 @@
         .validation-toggle input { width: 16px; height: 16px; }
         .basemap-switch { display: flex; gap: 6px; padding: 8px 10px; border: 1px solid #e6ebf2; border-radius: 6px; background: #f8fafc; }
         .basemap-switch .basemap-btn {
-            flex: 1; padding: 8px 10px; border: 1px solid #d4dbe6 !important; border-radius: 6px;
-            background: #fff !important; color: #334155 !important; font-size: 13px; font-weight: 600;
-            cursor: pointer; transition: all .2s; box-shadow: none !important;
-        }
-        .basemap-switch .basemap-btn:hover { background: #eef3f8 !important; }
-        .basemap-switch .basemap-btn.basemap-on {
-            border-color: #3388FF !important; background: #e7f3ff !important; color: #1a5fb4 !important;
-            box-shadow: inset 0 0 0 1px #3388FF !important;
+            flex: 1; padding: 8px 10px; border: 1px solid #d4dbe6; border-radius: 6px;
+            background: #fff; color: #334155; font-size: 13px; font-weight: 600;
+            cursor: pointer; transition: background .15s, border-color .15s, color .15s;
+            -webkit-appearance: none; appearance: none;
         }
         .basemap-hint { font-size: 11px; color: #64748b; padding: 0 4px 4px; line-height: 1.4; }
         .main-button-group { display: flex; gap: 10px; margin: 0; flex-wrap: wrap; }
@@ -123,8 +119,8 @@
                     <span>开启多边形合法性检测（默认关闭）</span>
                 </label>
                 <div class="basemap-switch" role="group" aria-label="底图切换">
-                    <button type="button" class="basemap-btn basemap-on" data-basemap="amap" aria-pressed="true">高德底图 (GCJ02)</button>
-                    <button type="button" class="basemap-btn" data-basemap="baidu" aria-pressed="false">百度底图 (BD09)</button>
+                    <button type="button" id="basemap-amap-btn" class="basemap-btn" data-basemap="amap" aria-pressed="true">高德底图 (GCJ02)</button>
+                    <button type="button" id="basemap-baidu-btn" class="basemap-btn" data-basemap="baidu" aria-pressed="false">百度底图 (BD09)</button>
                 </div>
                 <div class="basemap-hint" id="basemap-hint">当前展示坐标系：GCJ02（与高德导航一致）</div>
                 <label class="validation-toggle" for="satellite-layer-toggle">
@@ -240,13 +236,27 @@ document.addEventListener('DOMContentLoaded', function () {
 
     function getDisplayCrsName() { return isBaiduBasemap() ? 'BD09' : 'GCJ02'; }
 
+    function paintBasemapButton(btn, on) {
+        if (!btn) return;
+        btn.setAttribute('aria-pressed', on ? 'true' : 'false');
+        btn.classList.toggle('basemap-on', on);
+        // 用内联样式，避免被高德/百度 SDK 注入 CSS 覆盖
+        if (on) {
+            btn.style.setProperty('background', '#e7f3ff', 'important');
+            btn.style.setProperty('border', '1px solid #3388FF', 'important');
+            btn.style.setProperty('color', '#1a5fb4', 'important');
+            btn.style.setProperty('box-shadow', 'inset 0 0 0 1px #3388FF', 'important');
+        } else {
+            btn.style.setProperty('background', '#ffffff', 'important');
+            btn.style.setProperty('border', '1px solid #d4dbe6', 'important');
+            btn.style.setProperty('color', '#334155', 'important');
+            btn.style.setProperty('box-shadow', 'none', 'important');
+        }
+    }
+
     function updateBasemapUi() {
-        document.querySelectorAll('.basemap-btn').forEach(function (btn) {
-            var on = btn.getAttribute('data-basemap') === currentBasemap;
-            btn.classList.toggle('basemap-on', on);
-            btn.classList.remove('active');
-            btn.setAttribute('aria-pressed', on ? 'true' : 'false');
-        });
+        paintBasemapButton(document.getElementById('basemap-amap-btn'), currentBasemap === 'amap');
+        paintBasemapButton(document.getElementById('basemap-baidu-btn'), currentBasemap === 'baidu');
         var hint = document.getElementById('basemap-hint');
         var wgsLabel = document.getElementById('wgs84-toggle-label');
         var convertLabel = document.getElementById('convert-coord-btn-label');
@@ -458,7 +468,12 @@ document.addEventListener('DOMContentLoaded', function () {
     function initMap(basemap, keepView) {
         var center = keepView ? savedView.center : [116.704, 39.52];
         var zoom = keepView ? savedView.zoom : 8;
-        if (map) map.destroy();
+        if (map) {
+            try { map.destroy(); } catch (e) { /* ignore */ }
+            map = null;
+        }
+        var container = document.getElementById('container');
+        if (container) container.innerHTML = '';
         map = basemap === 'baidu'
             ? createBaiduAdapter('container', center, zoom)
             : createAmapAdapter('container', center, zoom);
@@ -473,24 +488,31 @@ document.addEventListener('DOMContentLoaded', function () {
         if (basemap === currentBasemap) return;
         var prevBasemap = currentBasemap;
         var hasGraphics = points.length || lines.length || polygons.length || poiMarkers.length;
-        // 先更新按钮高亮，避免异步加载底图时 UI 无反馈
+        // 点击后立刻切换按钮高亮
         currentBasemap = basemap;
         updateBasemapUi();
-        var switchMap = function () {
-            currentBasemap = prevBasemap;
-            rememberMapView();
-            initMap(basemap, true);
-            if (hasGraphics) redrawAllGraphics();
-            showStatus('已切换至' + (basemap === 'baidu' ? '百度' : '高德') + '底图（' + getDisplayCrsName() + '）', true);
+        var finish = function () {
+            try {
+                // rememberMapView 需按旧底图读中心点
+                currentBasemap = prevBasemap;
+                rememberMapView();
+                initMap(basemap, true);
+                if (hasGraphics) redrawAllGraphics();
+                showStatus('已切换至' + (basemap === 'baidu' ? '百度' : '高德') + '底图（' + getDisplayCrsName() + '）', true);
+            } catch (err) {
+                currentBasemap = prevBasemap;
+                updateBasemapUi();
+                showStatus('底图切换失败：' + (err && err.message ? err.message : String(err)), false);
+            }
         };
         if (basemap === 'baidu') {
-            loadBaiduMapScript().then(switchMap).catch(function (err) {
+            loadBaiduMapScript().then(finish).catch(function (err) {
                 currentBasemap = prevBasemap;
                 updateBasemapUi();
                 showStatus(err.message, false);
             });
         } else {
-            switchMap();
+            finish();
         }
     }
 
