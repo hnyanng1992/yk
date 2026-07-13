@@ -29,9 +29,16 @@
         .validation-toggle { display: flex; align-items: center; gap: 8px; padding: 8px 10px; border: 1px solid #e6ebf2; border-radius: 6px; background: #f8fafc; font-size: 13px; color: #334155; }
         .validation-toggle input { width: 16px; height: 16px; }
         .basemap-switch { display: flex; gap: 6px; padding: 8px 10px; border: 1px solid #e6ebf2; border-radius: 6px; background: #f8fafc; }
-        .basemap-btn { flex: 1; padding: 8px 10px; border: 1px solid #d4dbe6; border-radius: 6px; background: #fff; color: #334155; font-size: 13px; font-weight: 600; cursor: pointer; transition: all .2s; }
-        .basemap-btn:hover { background: #eef3f8; }
-        .basemap-btn.active { border-color: #3388FF; background: #e7f3ff; color: #1a5fb4; box-shadow: inset 0 0 0 1px #3388FF; }
+        .basemap-switch .basemap-btn {
+            flex: 1; padding: 8px 10px; border: 1px solid #d4dbe6 !important; border-radius: 6px;
+            background: #fff !important; color: #334155 !important; font-size: 13px; font-weight: 600;
+            cursor: pointer; transition: all .2s; box-shadow: none !important;
+        }
+        .basemap-switch .basemap-btn:hover { background: #eef3f8 !important; }
+        .basemap-switch .basemap-btn.basemap-on {
+            border-color: #3388FF !important; background: #e7f3ff !important; color: #1a5fb4 !important;
+            box-shadow: inset 0 0 0 1px #3388FF !important;
+        }
         .basemap-hint { font-size: 11px; color: #64748b; padding: 0 4px 4px; line-height: 1.4; }
         .main-button-group { display: flex; gap: 10px; margin: 0; flex-wrap: wrap; }
         .main-button-group button { flex: 1; min-width: 110px; padding: 12px; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; transition: all .3s; font-size: 14px; display: flex; align-items: center; justify-content: center; gap: 6px; }
@@ -116,8 +123,8 @@
                     <span>开启多边形合法性检测（默认关闭）</span>
                 </label>
                 <div class="basemap-switch" role="group" aria-label="底图切换">
-                    <button type="button" class="basemap-btn active" data-basemap="amap">高德底图 (GCJ02)</button>
-                    <button type="button" class="basemap-btn" data-basemap="baidu">百度底图 (BD09)</button>
+                    <button type="button" class="basemap-btn basemap-on" data-basemap="amap" aria-pressed="true">高德底图 (GCJ02)</button>
+                    <button type="button" class="basemap-btn" data-basemap="baidu" aria-pressed="false">百度底图 (BD09)</button>
                 </div>
                 <div class="basemap-hint" id="basemap-hint">当前展示坐标系：GCJ02（与高德导航一致）</div>
                 <label class="validation-toggle" for="satellite-layer-toggle">
@@ -235,7 +242,10 @@ document.addEventListener('DOMContentLoaded', function () {
 
     function updateBasemapUi() {
         document.querySelectorAll('.basemap-btn').forEach(function (btn) {
-            btn.classList.toggle('active', btn.getAttribute('data-basemap') === currentBasemap);
+            var on = btn.getAttribute('data-basemap') === currentBasemap;
+            btn.classList.toggle('basemap-on', on);
+            btn.classList.remove('active');
+            btn.setAttribute('aria-pressed', on ? 'true' : 'false');
         });
         var hint = document.getElementById('basemap-hint');
         var wgsLabel = document.getElementById('wgs84-toggle-label');
@@ -461,8 +471,13 @@ document.addEventListener('DOMContentLoaded', function () {
 
     function switchBasemap(basemap) {
         if (basemap === currentBasemap) return;
+        var prevBasemap = currentBasemap;
         var hasGraphics = points.length || lines.length || polygons.length || poiMarkers.length;
+        // 先更新按钮高亮，避免异步加载底图时 UI 无反馈
+        currentBasemap = basemap;
+        updateBasemapUi();
         var switchMap = function () {
+            currentBasemap = prevBasemap;
             rememberMapView();
             initMap(basemap, true);
             if (hasGraphics) redrawAllGraphics();
@@ -470,6 +485,8 @@ document.addEventListener('DOMContentLoaded', function () {
         };
         if (basemap === 'baidu') {
             loadBaiduMapScript().then(switchMap).catch(function (err) {
+                currentBasemap = prevBasemap;
+                updateBasemapUi();
                 showStatus(err.message, false);
             });
         } else {
